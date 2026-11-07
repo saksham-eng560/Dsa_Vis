@@ -60,7 +60,12 @@ class OllamaClient:
             "stream": True,
             "format": "json",
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-            "options": {"temperature": self.s.llm_temperature, "num_predict": self.s.llm_max_tokens},
+            "keep_alive": "30m",
+            "options": {
+                "temperature": self.s.llm_temperature,
+                "num_predict": self.s.llm_max_tokens,
+                "num_ctx": self.s.llm_num_ctx,
+            },
         }
         url = f"{self.s.ollama_base_url}/api/chat"
         async with self.http.stream("POST", url, json=body, timeout=self.s.llm_timeout_s) as res:

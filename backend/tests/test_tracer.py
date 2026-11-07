@@ -1,5 +1,9 @@
 """Real sandboxed execution traces → data-structure snapshots."""
 
+import sys
+
+import pytest
+
 from core.tracer import trace_python
 
 
@@ -113,6 +117,7 @@ async def test_timeout_without_traced_lines() -> None:
     assert run_.error and "timed out" in run_.error
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="macOS does not enforce RLIMIT_AS")
 async def test_memory_bomb_is_contained() -> None:
     run_ = await run("x = ' ' * (1024 ** 3)\n")
     assert run_.error and "MemoryError" in run_.error

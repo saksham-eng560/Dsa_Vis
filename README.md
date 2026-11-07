@@ -63,7 +63,17 @@ sequenceDiagram
 - the app is fully usable **without any model** ("Static mode"), and
 - the LLM is told the static facts in its prompt, so it explains rather than guesses.
 
-## Quick start
+## Quick start (one command)
+
+```bash
+./start.sh            # installs deps, starts Ollama, pulls the right model, runs API + web app, opens the browser
+./start.sh setup      # install + pull the model only
+./start.sh test       # backend tests + lint, frontend tests, type-check + build
+```
+
+The script picks the model from your RAM: **≥ 32 GB → `qwen2.5-coder:14b`**, **16–31 GB → `qwen2.5-coder:7b`**, **< 16 GB → `qwen2.5-coder:3b`**. Override it with `OLLAMA_MODEL=… ./start.sh`. Logs go to `.logs/`, and Ctrl+C stops everything except Ollama.
+
+## Manual setup
 
 ```bash
 # 1. Backend (Python 3.11+)
@@ -133,7 +143,7 @@ frontend/src/
 ## Testing
 
 ```bash
-cd backend && pytest            # 68 tests: tracer, sandbox, flowcharts, Big-O, LLM clients/merge, API, SSE
+cd backend && pytest            # 70 tests: tracer, sandbox, flowcharts, Big-O, LLM clients/merge, API, SSE
 cd backend && ruff check .
 cd frontend && npm test         # vitest: language detection, Big-O helpers, share links, SSE parsing, diagram utils
 cd frontend && npm run build    # strict TypeScript + production bundle
@@ -154,6 +164,7 @@ The API also enforces input size limits, per-IP rate limiting, and CORS. For a p
 ## Known limitations
 
 - Live tracing is Python-only. Dry runs for other languages come from the LLM and are labelled as AI-generated.
+- On macOS the sandbox's memory cap (`RLIMIT_AS`) isn't enforced by the OS. The CPU-time limit, timeout and audit hook still apply.
 - Static Big-O is a heuristic covering loops, halving, recursion patterns, memoisation, graph traversal, and tree recursion. When an LLM is available, its answer is preferred, and disagreements are surfaced as warnings.
 - The C-family parser is structural, not a full grammar. Unusual syntax degrades to plain "process" nodes.
 - The reference photos and website mentioned in the brief were not provided. The design follows the brief's own token spec (glass, blur, indigo/emerald accents, gradient orbs).

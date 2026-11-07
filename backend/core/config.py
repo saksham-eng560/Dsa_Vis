@@ -4,11 +4,12 @@ Every tunable lives here so modules never read `os.environ` directly; this keeps
 configuration injectable in tests (construct `Settings(...)` with overrides).
 """
 
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -18,11 +19,12 @@ class Settings(BaseSettings):
 
     # --- LLM -----------------------------------------------------------------
     llm_provider: Literal["auto", "ollama", "openai", "none"] = "auto"
-    ollama_base_url: str = "http://localhost:11434"
+    ollama_base_url: str = "http://127.0.0.1:11434"  # IPv4: macOS may resolve localhost to ::1
     ollama_model: str = "qwen2.5-coder:7b"
     llm_temperature: float = 0.1
     llm_max_tokens: int = 4096
-    llm_timeout_s: float = 120.0
+    llm_timeout_s: float = 180.0
+    llm_num_ctx: int = 8192  # Ollama context window (its default is too small for code + JSON)
 
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
@@ -31,7 +33,8 @@ class Settings(BaseSettings):
     # --- App -----------------------------------------------------------------
     app_host: str = "0.0.0.0"
     app_port: int = 8000
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # NoDecode: accept `CORS_ORIGINS=a,b` instead of requiring a JSON list.
+    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["http://localhost:5173"])
     debug: bool = False
 
     # --- Limits --------------------------------------------------------------
@@ -47,8 +50,10 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
-        """Allow `CORS_ORIGINS=a,b` as a comma-separated string."""
-        if isinstance(value, str) and not value.strip().startswith("["):
+        """Accept `CORS_ORIGINS=a,b` (comma-separated) or a JSON list string."""
+        if isinstance(value, str):
+            if value.strip().startswith("["):
+                return json.loads(value)
             return [v.strip() for v in value.split(",") if v.strip()]
         return value
 

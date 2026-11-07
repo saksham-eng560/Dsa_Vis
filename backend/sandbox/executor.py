@@ -34,18 +34,25 @@ class ExecutionResult:
     timed_out: bool
 
 
-def _limit_resources(cpu_s: int, memory_mb: int) -> None:
-    """`preexec_fn`: applied in the child between fork and exec."""
-    os.setsid()  # own process group so the timeout can kill everything
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu_s, cpu_s))
-    mem = memory_mb * 1024 * 1024
-    resource.setrlimit(resource.RLIMIT_AS, (mem, mem))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
-    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+def _try_limit(kind: int, value: int) -> None:
+    """Lower one limit; skip it where the OS refuses (macOS rejects RLIMIT_AS / NPROC)."""
     try:
-        resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
-    except (ValueError, OSError):  # pragma: no cover - not settable everywhere
+        _, hard = resource.getrlimit(kind)
+        cap = value if hard == resource.RLIM_INFINITY else min(value, hard)
+        resource.setrlimit(kind, (cap, cap))
+    except (ValueError, OSError):
         pass
+
+
+def _limit_resources(cpu_s: int, memory_mb: int) -> None:
+    """`preexec_fn`: applied in the child between fork and exec. Must never raise."""
+    os.setsid()  # own process group so the timeout can kill everything
+    _try_limit(resource.RLIMIT_CPU, cpu_s)
+    _try_limit(resource.RLIMIT_AS, memory_mb * 1024 * 1024)
+    _try_limit(resource.RLIMIT_FSIZE, 0)
+    _try_limit(resource.RLIMIT_CORE, 0)
+    if sys.platform != "darwin":  # macOS counts all of the user's processes here
+        _try_limit(resource.RLIMIT_NPROC, 0)
 
 
 async def run_python(
