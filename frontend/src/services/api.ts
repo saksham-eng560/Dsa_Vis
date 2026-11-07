@@ -3,6 +3,7 @@
  * In dev, Vite proxies `/api` to FastAPI; set `VITE_API_URL` for other hosts.
  */
 import type { AnalyzeRequest, Explanation, HealthStatus, StreamEvent } from '../types';
+import type { CompareMode, LCProblem, LCSummary, RunTestsResponse } from '../types/leetcode';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -49,10 +50,31 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
   return (await res.json()) as T;
 }
 
-export async function fetchHealth(signal?: AbortSignal): Promise<HealthStatus> {
-  const res = await fetch(`${BASE}/api/health`, { signal });
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, { signal });
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw err;
+    throw new ApiError('Cannot reach the CodeLens server. Is the backend running?', 0);
+  }
   if (!res.ok) throw await toError(res);
-  return (await res.json()) as HealthStatus;
+  return (await res.json()) as T;
+}
+
+export const fetchHealth = (signal?: AbortSignal) => get<HealthStatus>('/api/health', signal);
+
+export const fetchProblemList = () => get<LCSummary[]>('/api/leetcode/problems');
+
+export const fetchProblem = (ref: string) => get<LCProblem>(`/api/leetcode/problems/${encodeURIComponent(ref.trim())}`);
+
+export function runTests(
+  code: string,
+  problem: string,
+  tests: { input: string[]; expected: string | null }[],
+  compare: CompareMode | null,
+) {
+  return post<RunTestsResponse>('/api/leetcode/run', { code, problem, tests, compare });
 }
 
 export function explain(code: string, language: string, eli5: boolean, signal?: AbortSignal) {

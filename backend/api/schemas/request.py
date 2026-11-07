@@ -31,9 +31,15 @@ class CodeRequest(BaseModel):
 
 
 class AnalyzeRequest(CodeRequest):
-    """Body for `/api/analyze` — `use_llm=False` forces the static pipeline only."""
+    """Body for `/api/analyze` — `use_llm=False` forces the static pipeline only.
+
+    With `problem` (LeetCode id/slug/URL) the dry run executes `Solution` on
+    `test_input` (LeetCode format, one value per line; default: example 1).
+    """
 
     use_llm: bool = True
+    problem: str | None = Field(default=None, max_length=200)
+    test_input: list[str] | None = Field(default=None, max_length=20)
 
 
 class ExplainRequest(CodeRequest):

@@ -46,3 +46,9 @@ C_CASES["cpp_dfs"] = (
     "        }\n    }\n}\n",
     "O(V + E)",
 )
+CASES["min_stack_methods"] = (
+    "class MinStack:\n    def __init__(self):\n        self.stack = []\n        self.mins = []\n"
+    "    def pop(self):\n        self.stack.pop()\n        self.mins.pop()\n"
+    "    def top(self):\n        return self.stack[-1]\n",
+    "O(1)", "O(1)", "O(1)",
+)

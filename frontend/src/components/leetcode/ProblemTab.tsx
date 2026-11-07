@@ -1,0 +1,115 @@
+/** "Problem" tab: statement, tags and the test-case runner. */
+import { ChevronDown, ExternalLink, FlaskConical, Plus } from 'lucide-react';
+import { useState } from 'react';
+
+import { useLeetCodeActions } from '../../hooks/useLeetCodeActions';
+import { useLeetCode } from '../../stores/leetcodeStore';
+import type { CompareMode } from '../../types/leetcode';
+import { GlowButton } from '../ui/GlowButton';
+import { DifficultyBadge } from './DifficultyBadge';
+import { TestCard } from './TestCard';
+
+const COMPARE_LABELS: Record<CompareMode, string> = {
+  exact: 'Exact match',
+  unordered: 'Any order',
+  unordered_nested: 'Any order (nested)',
+};
+
+export function ProblemTab() {
+  const { runAll, visualize } = useLeetCodeActions();
+  const lc = useLeetCode();
+  const [showStatement, setShowStatement] = useState(true);
+  const problem = lc.problem;
+  if (!problem) return null;
+
+  const paramNames = problem.design ? ['operations', 'arguments'] : problem.params.map((p) => p.name);
+  const done = Object.values(lc.results);
+  const passed = done.filter((r) => r.status === 'passed').length;
+  let exampleNo = 0;
+  let customNo = 0;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <section className="glass-inset p-4">
+        <header className="flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-semibold">
+            {problem.id}. {problem.title}
+          </h3>
+          <DifficultyBadge difficulty={problem.difficulty} />
+          {problem.url && (
+            <a href={problem.url} target="_blank" rel="noreferrer" className="chip focus-ring">
+              LeetCode <ExternalLink size={11} aria-hidden />
+            </a>
+          )}
+          <button
+            className="focus-ring ml-auto flex items-center gap-1 text-xs"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={() => setShowStatement(!showStatement)}
+            aria-expanded={showStatement}
+          >
+            Statement <ChevronDown size={14} aria-hidden style={{ transform: showStatement ? 'rotate(180deg)' : undefined }} />
+          </button>
+        </header>
+        {problem.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {problem.tags.map((t) => <span key={t} className="chip">{t}</span>)}
+          </div>
+        )}
+        {showStatement && (
+          <p className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-sm leading-relaxed scroll-thin" style={{ color: 'var(--text-muted)' }}>
+            {problem.description}
+          </p>
+        )}
+      </section>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <GlowButton variant="glow" icon={<FlaskConical size={15} />} onClick={() => void runAll()} disabled={lc.running || !lc.tests.length}>
+          {lc.running ? 'Running…' : 'Run all tests'}
+        </GlowButton>
+        <GlowButton icon={<Plus size={15} />} onClick={lc.addTest}>Add test case</GlowButton>
+        <select
+          className="field cursor-pointer"
+          aria-label="How outputs are compared"
+          value={lc.compare ?? problem.compare}
+          onChange={(e) => lc.setCompare(e.target.value as CompareMode)}
+        >
+          {(Object.keys(COMPARE_LABELS) as CompareMode[]).map((m) => (
+            <option key={m} value={m}>{COMPARE_LABELS[m]}</option>
+          ))}
+        </select>
+        {done.length > 0 && (
+          <span className="ml-auto text-sm font-semibold" style={{ color: passed === done.length ? 'var(--accent-secondary)' : 'var(--accent-warning)' }}>
+            {passed} / {done.length} passed
+          </span>
+        )}
+      </div>
+      {lc.runError && (
+        <p role="alert" className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--accent-danger)', color: 'var(--accent-danger)' }}>
+          {lc.runError}
+        </p>
+      )}
+      <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+        Inputs use LeetCode's format — one value per line: arrays <code>[1,2,3]</code>, strings <code>"abc"</code>, trees{' '}
+        <code>[3,9,20,null,null,15,7]</code>
+        {problem.design ? ', and for design problems the operations list and the arguments list.' : '.'} “Visualize” runs the
+        dry-run on that test case.
+      </p>
+
+      <div className="flex flex-col gap-3">
+        {lc.tests.map((test) => (
+          <TestCard
+            key={test.id}
+            test={test}
+            title={test.origin === 'example' ? `Example ${++exampleNo}` : `Custom test ${++customNo}`}
+            paramNames={paramNames}
+            result={lc.results[test.id]}
+            active={test.id === lc.activeTestId}
+            onChange={(patch) => lc.updateTest(test.id, patch)}
+            onRemove={() => lc.removeTest(test.id)}
+            onVisualize={() => void visualize(test.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

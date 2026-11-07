@@ -39,7 +39,7 @@ def _py_function(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> FuncFacts:
     facts.memo = bool(MEMO_RX.search(src))
     if facts.loop_depth and _grows_map_in_loop(fn, src):
         facts.alloc = max(facts.alloc, N)
-    calls = [c for c in ast.walk(fn) if isinstance(c, ast.Call) and _call_name(c) == fn.name]
+    calls = [c for c in ast.walk(fn) if isinstance(c, ast.Call) and _recursive_name(c) == fn.name]
     if calls:
         facts.self_calls = max(1, _calls_on_path(fn.body, fn.name))
         arg_src = " ".join(ast.unparse(a) for c in calls for a in c.args)
@@ -74,6 +74,16 @@ def shrink_kind(arg_src: str, params: set[str], n_calls: int) -> str:
     return "dec"
 
 
+def _recursive_name(call: ast.Call) -> str:
+    """Name if `call` could be self-recursion: `f(...)` or `self.f(...)` — not `stack.pop()`."""
+    f = call.func
+    if isinstance(f, ast.Name):
+        return f.id
+    if isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) and f.value.id in ("self", "cls"):
+        return f.attr
+    return ""
+
+
 def _call_name(call: ast.Call) -> str:
     f = call.func
     return f.id if isinstance(f, ast.Name) else f.attr if isinstance(f, ast.Attribute) else ""
@@ -85,11 +95,11 @@ def _calls_on_path(stmts: list[ast.stmt], name: str) -> int:
     for s in stmts:
         if isinstance(s, ast.If):
             total += max(_calls_on_path(s.body, name), _calls_on_path(s.orelse, name)) + sum(
-                1 for c in ast.walk(s.test) if isinstance(c, ast.Call) and _call_name(c) == name)
+                1 for c in ast.walk(s.test) if isinstance(c, ast.Call) and _recursive_name(c) == name)
         elif isinstance(s, (ast.For, ast.While, ast.With, ast.Try)):
             total += _calls_on_path(getattr(s, "body", []), name)
         else:
-            total += sum(1 for c in ast.walk(s) if isinstance(c, ast.Call) and _call_name(c) == name)
+            total += sum(1 for c in ast.walk(s) if isinstance(c, ast.Call) and _recursive_name(c) == name)
     return total
 
 
@@ -122,7 +132,7 @@ def _py_cost(stmts: list[ast.stmt], ctx: Cost, depth: int, facts: FuncFacts,
             inner_ctx = ctx * _loop_factor(s, facts)
             if depth == 0 and any(isinstance(n, (ast.Return, ast.Break)) for n in ast.walk(s)):
                 facts.early_exit = True
-            if any(isinstance(c, ast.Call) and _call_name(c) in self_names for c in ast.walk(s)):
+            if any(isinstance(c, ast.Call) and _recursive_name(c) in self_names for c in ast.walk(s)):
                 facts.call_in_loop = True
             cost, d = _py_cost(s.body, inner_ctx, depth + 1, facts, self_names)
             best, max_depth = max(best, cost), max(max_depth, d)
@@ -146,7 +156,7 @@ def _expr_cost(s: ast.stmt, facts: FuncFacts, ctx: Cost, self_names: set[str]) -
             name = _call_name(node)
             if name in _SORT_CALLS:
                 cost = max(cost, NLOGN)
-            elif name in _LINEAR_CALLS and node.args:
+            elif name in _LINEAR_CALLS and node.args and (name not in ("min", "max") or len(node.args) == 1):
                 cost = max(cost, N)
             elif name and name not in self_names:
                 facts.callees.append((name, ctx))

@@ -108,3 +108,50 @@ async def test_rate_limit(make_client, settings: Settings) -> None:
     async with make_client(cfg=cfg) as client:
         codes = [(await client.post("/api/complexity", json={"code": "x = 1"})).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+
+
+async def test_leetcode_endpoints_and_problem_dry_run(make_client) -> None:
+    code = (
+        "class Solution:\n    def maxDepth(self, root):\n        if not root:\n            return 0\n"
+        "        return 1 + max(self.maxDepth(root.left), self.maxDepth(root.right))\n"
+    )
+    async with make_client() as client:
+        listing = (await client.get("/api/leetcode/problems")).json()
+        problem = (await client.get("/api/leetcode/problems/104")).json()
+        run = (await client.post("/api/leetcode/run", json={
+            "code": code, "problem": "104",
+            "tests": [*({"input": e["input"], "expected": e["expected"]} for e in problem["examples"]),
+                      {"input": ["[1,2]"], "expected": "5"}],
+        })).json()
+        body = (await client.post("/api/analyze", json={
+            "code": code, "problem": "maximum-depth-of-binary-tree", "test_input": ["[3,9,20,null,null,15,7]"],
+        })).json()
+        bad = await client.post("/api/analyze", json={"code": code, "problem": "104", "test_input": ["[1", "2"]})
+    assert any(p["id"] == "104" for p in listing) and problem["starter_code"].startswith("# Definition")
+    assert (run["passed"], run["total"]) == (2, 3) and run["results"][2]["status"] == "failed"
+    assert body["algorithm_name"] == "104. Maximum Depth of Binary Tree"
+    assert body["dry_run"]["input_example"] == "root = [3,9,20,null,null,15,7]"
+    steps = body["dry_run"]["steps"]
+    assert any(s["function"] == "maxDepth" for s in steps)
+    assert "ListNode" not in steps[-1]["variables"] and "inf" not in steps[-1]["variables"]  # prelude hidden
+    trees = [s["data_structure_state"] for s in steps if s["data_structure_state"]]
+    assert trees and all(t["state"]["root"]["value"] == 3 for t in trees)  # whole tree, not subtrees
+    assert "3" in steps[-1]["output_so_far"]
+    assert bad.status_code == 422
+
+
+async def test_design_problem_dry_run_focuses_on_object_state(make_client) -> None:
+    code = (
+        "class MinStack:\n    def __init__(self):\n        self.stack = []\n        self.mins = []\n"
+        "    def push(self, val):\n        self.stack.append(val)\n"
+        "        self.mins.append(min(val, self.mins[-1] if self.mins else val))\n"
+        "    def pop(self):\n        self.stack.pop()\n        self.mins.pop()\n"
+        "    def top(self):\n        return self.stack[-1]\n    def getMin(self):\n        return self.mins[-1]\n"
+    )
+    async with make_client() as client:
+        body = (await client.post("/api/analyze", json={"code": code, "problem": "155"})).json()
+    states = [s["data_structure_state"] for s in body["dry_run"]["steps"] if s["data_structure_state"]]
+    assert states and {s["name"] for s in states} <= {"self.stack", "self.mins"}
+    assert states[0]["type"] == "stack"
+    assert body["complexity"]["time"]["worst"] == "O(1)"
+    assert "__operations" not in body["dry_run"]["steps"][-1]["variables"]

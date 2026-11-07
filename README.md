@@ -9,6 +9,22 @@ Paste **any** code. CodeLens gives you:
 - **Plain-English explanations.** A typewriter-style summary, an "Explain like I'm 5" toggle, key concepts, edge cases, optimisations, and related patterns.
 - **Convenience features.** Language auto-detection, example presets, drag-and-drop upload, share-by-URL, and a history sidebar. The dark/light glassmorphism UI works on desktop and tablet.
 
+## LeetCode mode
+
+Switch the editor to **LeetCode**, then type a problem number, name, slug or URL (e.g. `1`, `206`, `two-sum`), or pick one of the 23 bundled problems.
+
+- **Problem loading.** The statement, signature and Python starter code load, and the examples become test cases. Bundled problems work offline. Any other public problem is fetched from leetcode.com once, then cached in `backend/.cache/leetcode/`. Premium problems can't be fetched.
+- **Custom tests.** Add your own test cases in LeetCode's input format, one value per line: `[2,7,11,15]` then `9`. Trees use level order (`[3,9,20,null,null,15,7]`), and design problems take the operations list and the arguments list. The expected output is optional. Custom tests and your code are saved per problem.
+- **Run tests.** Your `Solution` is judged on every case in the sandbox. Each case gets a verdict like LeetCode's: Accepted, Wrong Answer, Runtime Error, Time Limit Exceeded or Compile Error. You also see your output, the expected output, stdout and run time. You can compare outputs exactly, in any order, or in any order at every level of nesting.
+- **Visualize.** Runs the dry run on that one test case, with `ListNode`/`TreeNode` inputs built for you. Trees and lists animate as whole structures, and class-based solutions (e.g. MinStack) show their `self.<field>` state.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/leetcode/problems` | bundled problem list |
+| GET | `/api/leetcode/problems/{ref}` | problem by number / slug / title / URL |
+| POST | `/api/leetcode/run` | `{code, problem, tests: [{input, expected?}], compare?}` → per-test verdicts |
+| POST | `/api/analyze` | add `problem` + `test_input` to trace a solution on a test case |
+
 ## Architecture
 
 ```mermaid
@@ -143,11 +159,11 @@ frontend/src/
 ## Testing
 
 ```bash
-cd backend && pytest            # 70 tests: tracer, sandbox, flowcharts, Big-O, LLM clients/merge, API, SSE
+cd backend && pytest            # 93 tests: tracer, sandbox, flowcharts, Big-O, LLM, API, SSE, LeetCode judge/fetch
 cd backend && ruff check .
 cd frontend && npm test         # vitest: language detection, Big-O helpers, share links, SSE parsing, diagram utils
 cd frontend && npm run build    # strict TypeScript + production bundle
-node frontend/e2e/smoke.cjs     # Playwright: every preset × every tab, breakpoints, no console errors
+node frontend/e2e/smoke.cjs     # Playwright: every preset × every tab, breakpoints, LeetCode run + visualise
 ```
 
 ## Security

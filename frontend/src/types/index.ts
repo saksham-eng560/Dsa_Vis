@@ -149,6 +149,9 @@ export interface AnalyzeRequest {
   language: LanguageChoice;
   entry_call?: string | null;
   use_llm?: boolean;
+  /** LeetCode mode: problem id/slug and the test case that drives the dry run. */
+  problem?: string | null;
+  test_input?: string[] | null;
 }
 
 /** Server-sent events emitted by `POST /api/analyze/stream`. */
@@ -159,7 +162,7 @@ export type StreamEvent =
   | { event: 'error'; data: { detail: string } }
   | { event: 'done'; data: Record<string, never> };
 
-export type TabId = 'flowchart' | 'dryrun' | 'complexity' | 'explain';
+export type TabId = 'problem' | 'flowchart' | 'dryrun' | 'complexity' | 'explain';
 
 export interface HistoryItem {
   id: string;

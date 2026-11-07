@@ -18,3 +18,6 @@ dist/
 
 # Launcher logs
 .logs/
+
+# LeetCode problem cache
+backend/.cache/

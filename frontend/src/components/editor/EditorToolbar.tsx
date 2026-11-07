@@ -1,8 +1,10 @@
 /** Editor actions: language, presets, upload, share, clear, analyze. */
-import { Eraser, FileUp, Link2, Sparkles } from 'lucide-react';
+import { Eraser, FileUp, FlaskConical, Link2, Sparkles } from 'lucide-react';
 import { useRef } from 'react';
 
+import { useLeetCodeActions } from '../../hooks/useLeetCodeActions';
 import { useAppStore } from '../../stores/appStore';
+import { useLeetCode } from '../../stores/leetcodeStore';
 import type { Language } from '../../types';
 import { PRESETS } from '../../utils/presets';
 import { GlowButton } from '../ui/GlowButton';
@@ -20,6 +22,10 @@ export function EditorToolbar({ detected, onAnalyze, onShare, onFile }: EditorTo
   const setLanguage = useAppStore((s) => s.setLanguage);
   const busy = useAppStore((s) => s.status === 'analyzing');
   const fileInput = useRef<HTMLInputElement>(null);
+  const lcMode = useLeetCode((s) => s.mode === 'leetcode');
+  const hasProblem = useLeetCode((s) => s.problem !== null);
+  const running = useLeetCode((s) => s.running);
+  const { runAll } = useLeetCodeActions();
 
   const loadPreset = (id: string) => {
     const preset = PRESETS.find((p) => p.id === id);
@@ -32,7 +38,12 @@ export function EditorToolbar({ detected, onAnalyze, onShare, onFile }: EditorTo
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <LanguageSelector value={language} detected={detected} onChange={setLanguage} />
+      {lcMode ? (
+        <span className="chip !h-9 !rounded-xl !px-3 !text-[0.8125rem]">Python 3</span>
+      ) : (
+        <LanguageSelector value={language} detected={detected} onChange={setLanguage} />
+      )}
+      {!lcMode && (
       <select
         className="field max-w-[9.5rem] cursor-pointer"
         aria-label="Load an example"
@@ -48,6 +59,7 @@ export function EditorToolbar({ detected, onAnalyze, onShare, onFile }: EditorTo
           </option>
         ))}
       </select>
+      )}
       <input
         ref={fileInput}
         type="file"
@@ -68,16 +80,27 @@ export function EditorToolbar({ detected, onAnalyze, onShare, onFile }: EditorTo
         icon={<Eraser size={16} />}
         onClick={() => useAppStore.getState().setCode('')}
       />
+      {lcMode && (
+        <GlowButton
+          className="ml-auto"
+          icon={<FlaskConical size={16} />}
+          onClick={() => void runAll()}
+          disabled={!hasProblem || running}
+          title="Run your solution on every test case"
+        >
+          {running ? 'Running…' : 'Run tests'}
+        </GlowButton>
+      )}
       <GlowButton
         variant="glow"
-        className="ml-auto"
+        className={lcMode ? '' : 'ml-auto'}
         icon={<Sparkles size={16} />}
         onClick={onAnalyze}
         disabled={busy}
         aria-keyshortcuts="Control+Enter"
         title="Analyze (Ctrl/⌘ + Enter)"
       >
-        {busy ? 'Analyzing…' : 'Analyze'}
+        {busy ? 'Analyzing…' : lcMode ? 'Visualize' : 'Analyze'}
       </GlowButton>
     </div>
   );

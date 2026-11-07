@@ -4,6 +4,7 @@ even with no model available, and gives the LLM grounded facts to explain.
 """
 
 import re
+from dataclasses import dataclass
 
 from api.schemas.response import AnalysisResult, DryRun, Flowchart
 from core.c_complexity_facts import c_facts
@@ -52,9 +53,22 @@ def guess_structures(code: str, dry_run: DryRun) -> list[str]:
     return list(dict.fromkeys([*traced, *found]))[:6]
 
 
-async def run_static(code: str, language: str, entry_call: str | None, settings: Settings) -> AnalysisResult:
+@dataclass(frozen=True)
+class ProblemContext:
+    """Run the code like a LeetCode judge: untraced prelude/setup, then `call`."""
+
+    title: str
+    prelude: str
+    setup: str
+    call: str
+    label: str
+
+
+async def run_static(
+    code: str, language: str, entry_call: str | None, settings: Settings, problem: ProblemContext | None = None
+) -> AnalysisResult:
     """Run every deterministic analysis and return a complete (LLM-free) result."""
-    lang = detect_language(code) if language == "auto" else language
+    lang = "python" if problem else detect_language(code) if language == "auto" else language
     warnings: list[str] = []
     dry_run = DryRun()
     if lang == "python":
@@ -68,13 +82,17 @@ async def run_static(code: str, language: str, entry_call: str | None, settings:
         else:
             flowchart = python_flowchart(tree, code)
             complexity = estimate(python_facts(tree))
-            if not entry_call:
+            if problem:
+                entry_call = problem.call
+            elif not entry_call:
                 entry_call, warn = synthesize_entry_call(tree)
                 if warn:
                     warnings.append(warn)
             dry_run = await trace_python(
                 code, entry_call, max_steps=settings.trace_max_steps,
                 timeout_s=settings.sandbox_timeout_s, memory_mb=settings.sandbox_memory_mb,
+                prelude=problem.prelude if problem else "", setup=problem.setup if problem else "",
+                input_label=problem.label if problem else None,
             )
             if dry_run.truncated:
                 warnings.append(f"Dry run stopped after {settings.trace_max_steps} steps.")
@@ -83,7 +101,7 @@ async def run_static(code: str, language: str, entry_call: str | None, settings:
         complexity = estimate(c_facts(code))
         warnings.append(f"Step-by-step execution of {lang} needs the AI model (only Python is traced live).")
 
-    algorithm = guess_algorithm(code)
+    algorithm = problem.title if problem else guess_algorithm(code)
     summary = (
         f"{algorithm if algorithm != 'Custom Logic' else 'This code'} — static analysis estimates "
         f"{complexity.time.worst} worst-case time and {complexity.space.complexity} extra space."

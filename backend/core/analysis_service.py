@@ -15,9 +15,11 @@ from api.schemas.response import AnalysisResult, Explanation
 from core.cache import LRUCache, cache_key
 from core.config import Settings
 from core.json_utils import extract_json
+from core.lc_problem import LeetCodeClient
+from core.lc_runtime import PRELUDE, prepare_test
 from core.llm_engine import LLMClient, LLMUnavailableError, complete
 from core.llm_merge import merge_analysis, merge_explanation
-from core.static_pipeline import run_static
+from core.static_pipeline import ProblemContext, run_static
 from models.knowledge import enrich_offline
 from models.prompts import SYSTEM_PROMPT, analysis_prompt, explain_prompt
 
@@ -29,9 +31,10 @@ class CodeTooLargeError(ValueError):
 
 
 class AnalysisService:
-    def __init__(self, settings: Settings, llm: LLMClient) -> None:
+    def __init__(self, settings: Settings, llm: LLMClient, leetcode: LeetCodeClient) -> None:
         self.settings = settings
         self.llm = llm
+        self.leetcode = leetcode
         self.cache: LRUCache[AnalysisResult] = LRUCache(settings.cache_size)
         self.explain_cache: LRUCache[Explanation] = LRUCache(settings.cache_size)
 
@@ -42,8 +45,18 @@ class AnalysisService:
     async def static(self, req: CodeRequest) -> AnalysisResult:
         """Deterministic analysis only (used by the focused endpoints)."""
         self._check(req)
-        result = await run_static(req.code, req.language, req.entry_call, self.settings)
+        context = await self._problem_context(req) if isinstance(req, AnalyzeRequest) else None
+        result = await run_static(req.code, req.language, req.entry_call, self.settings, context)
         return enrich_offline(result)
+
+    async def _problem_context(self, req: AnalyzeRequest) -> ProblemContext | None:
+        """Resolve LeetCode mode: which problem and which test case drives the dry run."""
+        if not req.problem:
+            return None
+        problem = await self.leetcode.get(req.problem)
+        lines = req.test_input or (problem.examples[0].input if problem.examples else [])
+        test = prepare_test(problem, lines)
+        return ProblemContext(f"{problem.id}. {problem.title}", PRELUDE, test.setup, test.call, test.label)
 
     async def analyze(self, req: AnalyzeRequest) -> AnalysisResult:
         """Full analysis; returns the final event of `analyze_stream`."""
@@ -57,7 +70,7 @@ class AnalysisService:
     async def analyze_stream(self, req: AnalyzeRequest) -> AsyncIterator[Event]:
         """Yield progress events: stage → partial → token* → result."""
         self._check(req)
-        key = cache_key("analyze", req.code, req.language, req.entry_call, req.use_llm)
+        key = cache_key("analyze", req.code, req.language, req.entry_call, req.use_llm, req.problem, req.test_input)
         if cached := self.cache.get(key):
             yield {"event": "result", "data": cached}
             return
@@ -123,7 +136,7 @@ def _hints(static: AnalysisResult) -> str:
     """Compact static facts handed to the LLM as grounding."""
     cx = static.complexity.time
     lines = [
-        f"- Recognised pattern: {static.algorithm_name}",
+        f"- Recognised pattern / problem: {static.algorithm_name}",
         f"- Estimated time: best {cx.best}, average {cx.average}, worst {cx.worst}",
         f"- Estimated space: {static.complexity.space.complexity}",
     ]

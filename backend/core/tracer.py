@@ -18,10 +18,23 @@ _HEAPQ_RX = re.compile(r"heapq\.\w+\(\s*(\w+)")
 
 
 async def trace_python(
-    code: str, entry_call: str | None, *, max_steps: int, timeout_s: float, memory_mb: int
+    code: str,
+    entry_call: str | None,
+    *,
+    max_steps: int,
+    timeout_s: float,
+    memory_mb: int,
+    prelude: str = "",
+    setup: str = "",
+    input_label: str | None = None,
 ) -> DryRun:
-    """Execute `code` (+ optional `entry_call`) in the sandbox and build a DryRun."""
-    payload = json.dumps({"code": code, "entry_call": entry_call, "max_steps": max_steps})
+    """Execute `code` (+ optional `entry_call`) in the sandbox and build a DryRun.
+
+    `prelude` (helpers) and `setup` (input bindings) run untraced before the entry call;
+    `input_label` replaces the raw entry call in the UI (e.g. LeetCode's `nums = [2,7]`).
+    """
+    payload = json.dumps({"code": code, "entry_call": entry_call, "max_steps": max_steps,
+                          "prelude": prelude, "setup": setup})
     result = await run_python(_HARNESS, payload, timeout_s, memory_mb)
     if result.timed_out:
         return DryRun(source="trace", error="Execution timed out (possible infinite loop).")
@@ -32,10 +45,11 @@ async def trace_python(
         return DryRun(source="trace", error=f"Sandbox error: {tail[0]}")
     steps = build_steps(doc["steps"], doc["stdout"], code, frozenset(_HEAPQ_RX.findall(code)))
     error = doc.get("error")
+    label = input_label or entry_call
     if doc.get("result") is not None and steps:
-        steps[-1].output_so_far += f"\n→ {entry_call} = {doc['result']}"
+        steps[-1].output_so_far += f"\n→ {'result' if input_label else entry_call} = {doc['result']}"
     return DryRun(
-        input_example=entry_call or "",
+        input_example=label or "",
         steps=steps,
         source="trace",
         truncated=bool(doc.get("truncated")),
@@ -44,8 +58,15 @@ async def trace_python(
 
 
 def _scope(raw: dict) -> dict[str, Value]:
-    """Visible variables at a step: globals overlaid by the frame's locals."""
-    return {**raw["globals"], **raw["locals"]}
+    """Visible variables: globals, overlaid by locals, plus `self.<field>` for methods.
+
+    Expanding `self` lets class-based code (MinStack, LRUCache, …) visualise its fields.
+    """
+    scope = {**raw["globals"], **raw["locals"]}
+    me = raw["locals"].get("self")
+    if isinstance(me, dict) and me.get("t") == "obj":
+        scope.update({f"self.{k}": v for k, v in me["f"].items()})
+    return scope
 
 
 def _pick_focus(raw_steps: list[dict], heap_names: frozenset[str]) -> tuple[str, str] | None:
@@ -67,6 +88,9 @@ def _focus_value(focus: tuple[str, str], raw: dict, heap_names: frozenset[str]) 
     local `root`/`head` is just a sub-structure, while the global one is whole.
     """
     name, kind = focus
+    if name.startswith("self."):
+        value = _scope(raw).get(name)
+        return value if value is not None and classify(name, value, heap_names) == kind else None
     order = ("globals", "locals") if kind in ("tree", "linked_list") else ("locals", "globals")
     for space in order:
         value = raw[space].get(name)

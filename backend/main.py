@@ -5,15 +5,18 @@ Run: `uvicorn main:app --reload` from the `backend/` directory.
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import analyze, complexity, dryrun, explain, health, visualize
+from api.routes import analyze, complexity, dryrun, explain, health, leetcode, visualize
 from core.analysis_service import AnalysisService, CodeTooLargeError
 from core.config import Settings, get_settings
+from core.lc_problem import LeetCodeClient, ProblemNotFoundError
+from core.lc_runtime import TestInputError
 from core.llm_engine import LLMClient, build_llm
 from core.rate_limit import RateLimitMiddleware
 
@@ -25,7 +28,8 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with httpx.AsyncClient() as http:
-            app.state.service = AnalysisService(settings, llm or build_llm(settings, http))
+            lc = LeetCodeClient(http, Path(settings.leetcode_cache_dir))
+            app.state.service = AnalysisService(settings, llm or build_llm(settings, http), lc)
             yield
 
     app = FastAPI(title="CodeLens API", version=health.VERSION, lifespan=lifespan)
@@ -41,7 +45,15 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -
     async def too_large(_: Request, exc: CodeTooLargeError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=413)
 
-    for module in (health, analyze, visualize, dryrun, complexity, explain):
+    @app.exception_handler(ProblemNotFoundError)
+    async def not_found(_: Request, exc: ProblemNotFoundError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=404)
+
+    @app.exception_handler(TestInputError)
+    async def bad_test(_: Request, exc: TestInputError) -> JSONResponse:
+        return JSONResponse({"detail": f"Invalid test input — {exc}"}, status_code=422)
+
+    for module in (health, analyze, visualize, dryrun, complexity, explain, leetcode):
         app.include_router(module.router, prefix="/api")
     return app
 

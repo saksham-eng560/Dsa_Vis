@@ -1,6 +1,8 @@
 # Trace harness — trusted code executed inside the sandbox subprocess.
 #
-# Reads {"code", "entry_call", "max_steps"} JSON from stdin, runs the user code
+# Reads {"code", "prelude", "setup", "entry_call", "max_steps"} JSON from stdin.
+# The prelude (trusted helpers, e.g. LeetCode's ListNode) and setup (binding test
+# inputs) run untraced; then the user code runs
 # under sys.settrace, and writes one JSON document describing every executed
 # line (locals snapshot, call depth, stdout offset) to the real stdout.
 import builtins
@@ -63,10 +65,12 @@ def _visible(name, value):
         not isinstance(value, type(sys)) and not callable(value)
 
 
-def _snapshot(namespace):
+def _snapshot(namespace, hidden=None):
+    """Serialise visible variables; `hidden` maps prelude names to their original values."""
     seen = set()
+    hidden = hidden or {}
     return {k: _ser(v, seen, [_MAX_NODES]) for k, v in list(namespace.items())
-            if _visible(k, v)}
+            if _visible(k, v) and hidden.get(k, _ser) is not v}
 
 
 def _depth(frame):
@@ -85,6 +89,9 @@ def _main():
     steps = []
     state = {"truncated": False, "last_exc": None}
     out = io.StringIO()
+    if payload.get("prelude"):
+        exec(compile(payload["prelude"], "<prelude>", "exec"), user_globals)
+    prelude_names = dict(user_globals)
 
     def tracer(frame, event, arg):
         code = frame.f_code
@@ -104,7 +111,7 @@ def _main():
             "line": frame.f_lineno, "event": event, "func": code.co_name,
             "depth": _depth(frame), "out": out.tell(),
             "locals": {} if is_module else _snapshot(frame.f_locals),
-            "globals": _snapshot(user_globals),
+            "globals": _snapshot(user_globals, prelude_names),
         }
         if event == "return":
             step["ret"] = _ser(arg, set(), [_MAX_NODES])
@@ -119,9 +126,11 @@ def _main():
         compiled = compile(payload["code"], _USER_FILE, "exec")
         entry = payload.get("entry_call")
         entry_code = compile(entry, "<entry>", "eval") if entry else None
+        setup_code = compile(payload.get("setup") or "", "<setup>", "exec")
         _codelens_arm()  # noqa: F821 - defined by guard.py, prepended at runtime
         sys.settrace(tracer)
         exec(compiled, user_globals)
+        exec(setup_code, user_globals)
         if entry_code is not None:
             result = repr(eval(entry_code, user_globals))[:500]
     except _StopTrace:

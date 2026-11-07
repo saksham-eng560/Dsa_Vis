@@ -6,6 +6,7 @@ configuration injectable in tests (construct `Settings(...)` with overrides).
 
 import json
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
@@ -46,6 +47,9 @@ class Settings(BaseSettings):
     sandbox_timeout_s: float = 5.0
     sandbox_memory_mb: int = 256
     trace_max_steps: int = 400
+
+    # --- LeetCode -------------------------------------------------------------
+    leetcode_cache_dir: str = str(Path(__file__).parent.parent / ".cache" / "leetcode")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

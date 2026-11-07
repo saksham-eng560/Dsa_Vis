@@ -6,6 +6,10 @@ import { Play } from 'lucide-react';
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useState, type DragEvent } from 'react';
 
 import { useAnalysis } from '../../hooks/useAnalysis';
+import { usePersistProblemCode } from '../../hooks/useLeetCodeActions';
+import { useLeetCode } from '../../stores/leetcodeStore';
+import { ModeToggle } from '../leetcode/ModeToggle';
+import { ProblemPicker } from '../leetcode/ProblemPicker';
 import { useShareLink } from '../../hooks/useShareLink';
 import { useAppStore } from '../../stores/appStore';
 import { detectLanguage, languageFromFilename } from '../../utils/codeDetection';
@@ -24,7 +28,9 @@ export function EditorPanel() {
   const setEntryCall = useAppStore((s) => s.setEntryCall);
   const deferredCode = useDeferredValue(code); // debounce detection while typing
   const detected = useMemo(() => detectLanguage(deferredCode), [deferredCode]);
-  const effective = language === 'auto' ? detected : language;
+  const lcMode = useLeetCode((s) => s.mode === 'leetcode');
+  const effective = lcMode ? 'python' : language === 'auto' ? detected : language;
+  usePersistProblemCode();
   const [dragging, setDragging] = useState(false);
 
   const share = useShareLink(() => void analyze());
@@ -60,6 +66,8 @@ export function EditorPanel() {
 
   return (
     <GlassCard className="flex min-h-[420px] flex-1 flex-col gap-3 p-4" aria-label="Code input">
+      <ModeToggle />
+      {lcMode && <ProblemPicker />}
       <EditorToolbar
         detected={detected}
         onAnalyze={() => void analyze()}
@@ -80,8 +88,10 @@ export function EditorPanel() {
         </Suspense>
         {!code && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-sm" style={{ color: 'var(--text-faint)' }}>
-            <p className="text-base font-medium" style={{ color: 'var(--text-muted)' }}>Paste any code to visualise it</p>
-            <p>…or pick an example, or drop a file here.</p>
+            <p className="text-base font-medium" style={{ color: 'var(--text-muted)' }}>
+              {lcMode ? 'Load a LeetCode problem above' : 'Paste any code to visualise it'}
+            </p>
+            <p>{lcMode ? 'Its starter code appears here — write your Solution, then run the tests.' : '…or pick an example, or drop a file here.'}</p>
           </div>
         )}
         {dragging && (
@@ -90,7 +100,7 @@ export function EditorPanel() {
           </div>
         )}
       </div>
-      {effective === 'python' && (
+      {effective === 'python' && !lcMode && (
         <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
           <Play size={14} aria-hidden />
           <span className="whitespace-nowrap">Dry-run call</span>

@@ -7,6 +7,7 @@ import { useCallback, useRef } from 'react';
 
 import { analyzeStream, ApiError } from '../services/api';
 import { useAppStore } from '../stores/appStore';
+import { activeTest, useLeetCode } from '../stores/leetcodeStore';
 import type { AnalysisResult } from '../types';
 
 export function useAnalysis() {
@@ -19,6 +20,12 @@ export function useAnalysis() {
       fail('Paste or type some code first.');
       return;
     }
+    const lc = useLeetCode.getState();
+    const lcMode = lc.mode === 'leetcode';
+    if (lcMode && !lc.problem) {
+      fail('Load a LeetCode problem first (enter its number or name above the editor).');
+      return;
+    }
     controller.current?.abort();
     const ctrl = new AbortController();
     controller.current = ctrl;
@@ -26,7 +33,12 @@ export function useAnalysis() {
 
     let final: AnalysisResult | null = null;
     try {
-      const stream = analyzeStream({ code, language, entry_call: entryCall.trim() || null }, ctrl.signal);
+      const stream = analyzeStream(
+        lcMode
+          ? { code, language: 'python', problem: lc.problem?.slug, test_input: activeTest(lc)?.input }
+          : { code, language, entry_call: entryCall.trim() || null },
+        ctrl.signal,
+      );
       for await (const ev of stream) {
         if (ev.event === 'stage') setProgress(ev.data.message);
         else if (ev.event === 'token') setProgress(useAppStore.getState().stage, ev.data.chars);
