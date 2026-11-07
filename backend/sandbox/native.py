@@ -57,12 +57,15 @@ async def _run(argv: list[str], timeout_s: float, memory_mb: int | None, cwd: Pa
                         proc.returncode if proc.returncode is not None else -1, False)
 
 
-async def compile_cpp(source: str, shim_header: str) -> tuple[Path | None, str]:
-    """Compile `source`; returns (binary, diagnostics). Binary is None on failure."""
+async def compile_cpp(source: str, shim_header: str, opt: str = "-O2") -> tuple[Path | None, str]:
+    """Compile `source`; returns (binary, diagnostics). Binary is None on failure.
+
+    Traces use `-O0` (compiles ~2x faster; speed of the traced run doesn't matter).
+    """
     cxx = find_compiler()
     if cxx is None:
         return None, "No C++ compiler found. On macOS run: xcode-select --install"
-    digest = hashlib.sha256(source.encode()).hexdigest()[:20]
+    digest = hashlib.sha256((opt + source).encode()).hexdigest()[:20]
     work = _BUILD_DIR / digest
     binary = work / "solution"
     if binary.exists():
@@ -70,7 +73,7 @@ async def compile_cpp(source: str, shim_header: str) -> tuple[Path | None, str]:
     (work / "include" / "bits").mkdir(parents=True, exist_ok=True)
     (work / "include" / "bits" / "stdc++.h").write_text(shim_header)
     (work / "main.cpp").write_text(source)
-    res = await _run([cxx, "-std=c++17", "-O2", "-w", "-I", "include", "main.cpp", "-o", "solution"],
+    res = await _run([cxx, "-std=c++17", opt, "-w", "-I", "include", "main.cpp", "-o", "solution"],
                      timeout_s=60, memory_mb=None, cwd=work)
     if res.timed_out:
         return None, "Compilation timed out."

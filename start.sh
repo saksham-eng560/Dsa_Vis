@@ -51,7 +51,7 @@ pick_model() {
   if [ "$(uname)" = "Darwin" ]; then bytes="$(sysctl -n hw.memsize)"
   else bytes="$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo)"; fi
   gb=$((bytes / 1024 / 1024 / 1024))
-  if   [ "${gb}" -ge 32 ]; then echo "qwen2.5-coder:14b"   # ~9 GB, best quality
+  if   [ "${gb}" -ge 24 ]; then echo "qwen2.5-coder:14b"   # ~9 GB, best explanations / chat
   elif [ "${gb}" -ge 16 ]; then echo "qwen2.5-coder:7b"    # ~4.7 GB, recommended
   else                        echo "qwen2.5-coder:3b"    # ~1.9 GB, 8 GB Macs
   fi

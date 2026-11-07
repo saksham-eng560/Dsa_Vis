@@ -116,3 +116,22 @@ def explain_prompt(code: str, language: str, eli5: bool) -> str:
         "Respond with JSON using exactly these keys:",
         json.dumps(keys, ensure_ascii=False),
     ])
+
+
+CHAT_SYSTEM = (
+    "You are CodeLens Tutor, a friendly expert in data structures, algorithms and C++/Python. "
+    "Answer the student's question about THEIR code using the context provided. Be concise and concrete: "
+    "refer to their variable names and line numbers, use short Markdown (bullets, `code`, ```code blocks```), "
+    "and show small examples. If they ask for a hint, give a hint — not the full solution — unless they ask for it."
+)
+
+
+def chat_prompt(context: str, history: list[tuple[str, str]], question: str) -> str:
+    """Single-turn prompt carrying the context and the last few exchanges (small-model friendly)."""
+    turns = "\n\n".join(f"{'Student' if role == 'user' else 'Tutor'}: {text}" for role, text in history[-8:])
+    return "\n\n".join(p for p in [
+        f"## Context\n{context}",
+        f"## Conversation so far\n{turns}" if turns else "",
+        f"## Student's question\n{question}",
+        "Answer as the Tutor:",
+    ] if p)

@@ -10,6 +10,7 @@ from pathlib import Path
 from api.schemas.response import DataStructureState, DryRun, DryRunStep
 from core.ds_highlights import highlights
 from core.ds_inference import classify, score, to_state
+from core.node_registry import NodeRegistry
 from core.value_model import Value, fmt
 from sandbox.executor import run_python
 
@@ -110,6 +111,8 @@ def build_steps(
     prev_frame: tuple[str, int] | None = None
     prev_focus_value: Value | None = None
     last_state: DataStructureState | None = None
+    registry = NodeRegistry()
+    root_id: int | None = None
 
     for idx, raw in enumerate(raw_steps):
         scope = _scope(raw)
@@ -120,14 +123,27 @@ def build_steps(
         )
         ds_state = last_state.model_copy(update={"highlights": []}) if last_state else None
         value = _focus_value(focus, raw, heap_names) if focus else None
+        linked = focus is not None and focus[1] in ("tree", "linked_list")
+        if linked:
+            for v in scope.values():
+                registry.update(v)
+            if value is not None and root_id is None:
+                root_id = value.get("id")
+            if root_id is not None:  # whole structure, rebuilt from the freshest node data
+                value = (registry.all_lists(root_id) if focus[1] == "linked_list"  # type: ignore[index]
+                         else registry.whole(focus[1], root_id))  # type: ignore[index]
         if focus and value is not None:
             ds_state = DataStructureState(
                 type=focus[1],  # type: ignore[arg-type]
                 name=focus[0],
-                state=to_state(focus[1], value),
+                state=registry.list_state(root_id) if focus[1] == "linked_list" else to_state(focus[1], value),
                 highlights=highlights(focus[1], value, prev_focus_value, raw["locals"] or scope),
             )
             prev_focus_value, last_state = value, ds_state
+        elif focus and last_state is not None and prev_focus_value is not None:
+            # focus variable out of scope (e.g. inside a helper): keep the structure, refresh pointers
+            ds_state = last_state.model_copy(update={
+                "highlights": highlights(focus[1], prev_focus_value, None, raw["locals"] or scope)})
 
         steps.append(
             DryRunStep(

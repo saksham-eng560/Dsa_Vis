@@ -30,6 +30,7 @@ export function useAnalysis() {
     const ctrl = new AbortController();
     controller.current = ctrl;
     startAnalysis();
+    if (lcMode && useAppStore.getState().activeTab === 'problem') useAppStore.getState().setTab('dryrun');
 
     let final: AnalysisResult | null = null;
     try {

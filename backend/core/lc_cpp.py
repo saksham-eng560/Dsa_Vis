@@ -243,6 +243,7 @@ BITS_STDCPP = """#pragma once
 #include <cassert>
 #include <climits>
 #include <cmath>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -260,6 +261,8 @@ BITS_STDCPP = """#pragma once
 #include <sstream>
 #include <stack>
 #include <stdexcept>
+#include <streambuf>
+#include <type_traits>
 #include <string>
 #include <tuple>
 #include <unordered_map>

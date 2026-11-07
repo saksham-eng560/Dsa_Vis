@@ -76,7 +76,11 @@ export type DataStructureState =
   | (DSBase & { type: 'array' | 'stack' | 'queue' | 'heap'; state: { values: Scalar[] } })
   | (DSBase & { type: 'matrix'; state: { rows: Scalar[][] } })
   | (DSBase & { type: 'hash_map'; state: { entries: [Scalar, Scalar][] } })
-  | (DSBase & { type: 'linked_list'; state: { nodes: { id: string; value: Scalar }[]; cycle_to?: string | null } })
+  | (DSBase & {
+      type: 'linked_list';
+      /** `edges` (when present) are the live `next` pointers; otherwise nodes are chained in order. */
+      state: { nodes: { id: string; value: Scalar }[]; edges?: { source: string; target: string }[]; cycle_to?: string | null };
+    })
   | (DSBase & { type: 'tree'; state: { root: TreeNode | null } })
   | (DSBase & { type: 'graph'; state: GraphState });
 

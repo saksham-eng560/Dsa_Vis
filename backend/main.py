@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import analyze, complexity, dryrun, explain, health, leetcode, visualize
+from api.routes import analyze, chat, complexity, dryrun, explain, health, leetcode, visualize
 from core.analysis_service import AnalysisService, CodeTooLargeError
 from core.config import Settings, get_settings
 from core.lc_problem import LeetCodeClient, ProblemNotFoundError
@@ -53,7 +53,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -
     async def bad_test(_: Request, exc: TestInputError) -> JSONResponse:
         return JSONResponse({"detail": f"Invalid test input — {exc}"}, status_code=422)
 
-    for module in (health, analyze, visualize, dryrun, complexity, explain, leetcode):
+    for module in (health, analyze, visualize, dryrun, complexity, explain, leetcode, chat):
         app.include_router(module.router, prefix="/api")
     return app
 

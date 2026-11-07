@@ -25,7 +25,7 @@ class LLMClient(Protocol):
 
     async def available(self) -> bool: ...
 
-    def stream(self, system: str, prompt: str) -> AsyncIterator[str]: ...
+    def stream(self, system: str, prompt: str, json_mode: bool = True) -> AsyncIterator[str]: ...
 
 
 async def complete(client: LLMClient, system: str, prompt: str) -> str:
@@ -54,11 +54,10 @@ class OllamaClient:
         self._ok_until = time.monotonic() + 30 if ok else 0.0
         return ok
 
-    async def stream(self, system: str, prompt: str) -> AsyncIterator[str]:
-        body = {
+    async def stream(self, system: str, prompt: str, json_mode: bool = True) -> AsyncIterator[str]:
+        body: dict = {
             "model": self.model,
             "stream": True,
-            "format": "json",
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             "keep_alive": "30m",
             "options": {
@@ -67,6 +66,8 @@ class OllamaClient:
                 "num_ctx": self.s.llm_num_ctx,
             },
         }
+        if json_mode:
+            body["format"] = "json"
         url = f"{self.s.ollama_base_url}/api/chat"
         async with self.http.stream("POST", url, json=body, timeout=self.s.llm_timeout_s) as res:
             if res.status_code != 200:
@@ -93,15 +94,16 @@ class OpenAICompatClient:
     async def available(self) -> bool:
         return bool(self.s.openai_api_key)
 
-    async def stream(self, system: str, prompt: str) -> AsyncIterator[str]:
-        body = {
+    async def stream(self, system: str, prompt: str, json_mode: bool = True) -> AsyncIterator[str]:
+        body: dict = {
             "model": self.model,
             "stream": True,
             "temperature": self.s.llm_temperature,
             "max_tokens": self.s.llm_max_tokens,
-            "response_format": {"type": "json_object"},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
         }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
         headers = {"Authorization": f"Bearer {self.s.openai_api_key}"}
         url = f"{self.s.openai_base_url.rstrip('/')}/chat/completions"
         async with self.http.stream(
@@ -126,7 +128,7 @@ class NullClient:
     async def available(self) -> bool:
         return False
 
-    async def stream(self, system: str, prompt: str) -> AsyncIterator[str]:
+    async def stream(self, system: str, prompt: str, json_mode: bool = True) -> AsyncIterator[str]:
         raise LLMUnavailableError("No LLM backend configured")
         yield ""  # pragma: no cover - makes this an async generator
 
@@ -150,11 +152,11 @@ class FallbackClient:
     async def available(self) -> bool:
         return await self._pick() is not None
 
-    async def stream(self, system: str, prompt: str) -> AsyncIterator[str]:
+    async def stream(self, system: str, prompt: str, json_mode: bool = True) -> AsyncIterator[str]:
         client = await self._pick()
         if client is None:
             raise LLMUnavailableError("No LLM backend is reachable")
-        async for chunk in client.stream(system, prompt):
+        async for chunk in client.stream(system, prompt, json_mode):
             yield chunk
 
 

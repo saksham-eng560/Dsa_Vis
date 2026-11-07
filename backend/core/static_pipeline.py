@@ -13,6 +13,7 @@ from core.code_parser import detect_language, parse_python
 from core.complexity_analyzer import estimate
 from core.complexity_facts import python_facts
 from core.config import Settings
+from core.cpp_tracer import NativeTraceUnavailable, trace_cpp_program
 from core.diagram_generator import python_flowchart
 from core.entry_synth import synthesize_entry_call
 from core.tracer import trace_python
@@ -65,7 +66,12 @@ class ProblemContext:
 
 
 async def run_static(
-    code: str, language: str, entry_call: str | None, settings: Settings, problem: ProblemContext | None = None
+    code: str,
+    language: str,
+    entry_call: str | None,
+    settings: Settings,
+    problem: ProblemContext | None = None,
+    native_cpp: bool = True,
 ) -> AnalysisResult:
     """Run every deterministic analysis and return a complete (LLM-free) result."""
     lang = "python" if problem else detect_language(code) if language == "auto" else language
@@ -99,7 +105,12 @@ async def run_static(
     else:
         flowchart = c_flowchart(code)
         complexity = estimate(c_facts(code))
-        warnings.append(f"Only Python is traced live — the {lang} dry run comes from the AI model (needs AI model).")
+        if lang == "cpp" and problem is None and native_cpp:
+            try:  # programs with main(): real execution trace, compiled natively
+                dry_run = await trace_cpp_program(code, max_steps=settings.trace_max_steps,
+                                                  memory_mb=settings.sandbox_memory_mb)
+            except NativeTraceUnavailable:
+                pass  # e.g. no main(): the AI model generates the trace instead
 
     algorithm = problem.title if problem else guess_algorithm(code)
     summary = (

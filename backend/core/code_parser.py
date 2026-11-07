@@ -98,15 +98,20 @@ _LINE_COMMENT_RX = re.compile(r"//[^\n]*")
 
 
 def strip_c_like(code: str) -> str:
-    """Blank out comments and string literals in C-family code, preserving line numbers.
+    """Blank out comments and string literals in C-family code.
 
-    Strings become `""` so structure-scanning regexes don't match inside them.
+    Length-preserving (every character keeps its offset, newlines stay), so
+    positions found in the stripped text map 1:1 onto the original source —
+    the C++ instrumenter relies on this. Strings keep their quotes.
     """
 
-    def blank(match: re.Match[str]) -> str:
-        text = match.group(0)
-        return "\n" * text.count("\n")
+    def blank(text: str) -> str:
+        return "".join(ch if ch == "\n" else " " for ch in text)
 
-    code = _BLOCK_COMMENT_RX.sub(blank, code)
-    code = _STRING_RX.sub(lambda m: '""' + "\n" * m.group(0).count("\n"), code)
-    return _LINE_COMMENT_RX.sub("", code)
+    def blank_string(m: re.Match[str]) -> str:
+        text = m.group(0)
+        return text[0] + blank(text[1:-1]) + text[-1]
+
+    code = _BLOCK_COMMENT_RX.sub(lambda m: blank(m.group(0)), code)
+    code = _STRING_RX.sub(blank_string, code)
+    return _LINE_COMMENT_RX.sub(lambda m: blank(m.group(0)), code)

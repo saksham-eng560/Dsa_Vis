@@ -2,7 +2,10 @@
 
 import json
 
+import pytest
+
 from core.config import Settings
+from sandbox.native import find_compiler
 from tests.conftest import FakeLLM
 
 BUBBLE = (
@@ -185,6 +188,8 @@ SLOPPY_TRACE = (  # what a 7B model really produces: aliases, strings for number
     '{"line": 5, "description": "loop continues"},'
     '{"line": 6, "description": "return dp[3] = 3", "variables": {"result": 3}, "data_stru'
 )
+JS_STAIRS = ("var climbStairs = function(n) {\n    const dp = new Array(n + 1).fill(1);\n"
+             "    for (let i = 2; i <= n; i++) dp[i] = dp[i - 1] + dp[i - 2];\n    return dp[n];\n};\n")
 CPP = ("class Solution {\npublic:\n    int climbStairs(int n) {\n        vector<int> dp(n + 1, 1);\n"
        "        for (int i = 2; i <= n; i++) dp[i] = dp[i - 1] + dp[i - 2];\n        return dp[n];\n    }\n};\n")
 
@@ -195,8 +200,8 @@ async def test_cpp_two_phase_ai_dry_run_tolerates_sloppy_output(make_client) -> 
         "space": {"complexity": "O(n)", "explanation": "dp array"}}})  # no concepts/edge cases at all
     llm = FakeLLM(insight, dry_run=SLOPPY_TRACE)
     async with make_client(llm) as client:
-        res = await client.post("/api/analyze/stream", json={
-            "code": CPP, "language": "cpp", "problem": "70", "test_input": ["3"]})
+        res = await client.post("/api/analyze/stream", json={  # JS: no native tracer → AI trace
+            "code": JS_STAIRS, "language": "javascript", "problem": "70", "test_input": ["3"]})
     events = [line.split(": ", 1)[1] for line in res.text.splitlines() if line.startswith("event:")]
     stages = [json.loads(line[6:])["stage"] for line in res.text.splitlines()
               if line.startswith("data:") and '"stage"' in line and '"message"' in line]
@@ -211,7 +216,7 @@ async def test_cpp_two_phase_ai_dry_run_tolerates_sloppy_output(make_client) -> 
     assert first["data_structure_state"]["highlights"] == [{"target": 2, "color": "yellow", "label": ""}]
     assert second["data_structure_state"]["type"] == "matrix"
     assert third["data_structure_state"]["state"] == second["data_structure_state"]["state"]  # carried forward
-    assert "Dry-run this cpp code" in llm.prompts[1] and "n = 3" in llm.prompts[1]
+    assert "Dry-run this javascript code" in llm.prompts[1] and "n = 3" in llm.prompts[1]
     assert final["summary"] == "Bottom-up DP." and final["complexity"]["source"] == "llm"
     assert not any("needs AI model" in w for w in final["warnings"])
     assert final["algorithm_name"] == "70. Climbing Stairs"
@@ -227,7 +232,7 @@ async def test_llm_omitting_fields_keeps_offline_explanations(make_client) -> No
 async def test_unusable_ai_trace_explains_itself(make_client) -> None:
     llm = FakeLLM(json.dumps({"summary": "x"}), dry_run="sorry, I cannot")
     async with make_client(llm) as client:
-        body = (await client.post("/api/analyze", json={"code": CPP, "language": "cpp"})).json()
+        body = (await client.post("/api/analyze", json={"code": JS_STAIRS, "language": "javascript"})).json()
     assert body["dry_run"]["steps"] == []
     assert any("didn't return a usable dry run" in w for w in body["warnings"])
 
@@ -242,7 +247,68 @@ async def test_explain_never_empty_offline(make_client) -> None:
 async def test_failed_ai_dry_run_is_not_cached(make_client) -> None:
     llm = FakeLLM(json.dumps({"summary": "x"}), dry_run="garbage")
     async with make_client(llm) as client:
-        await client.post("/api/analyze", json={"code": CPP, "language": "cpp"})
+        await client.post("/api/analyze", json={"code": JS_STAIRS, "language": "javascript"})
         llm.dry_run = SLOPPY_TRACE
-        body = (await client.post("/api/analyze", json={"code": CPP, "language": "cpp"})).json()
+        body = (await client.post("/api/analyze", json={"code": JS_STAIRS, "language": "javascript"})).json()
     assert len(body["dry_run"]["steps"]) == 4  # retried, not served from cache
+
+
+
+GOOD_NODES = (  # "count good nodes" logic under #104's signature
+    "class Solution {\n    int cnt = 0;\nprivate:\n    void F(TreeNode* curr, int prev) {\n"
+    "        if (!curr)\n            return;\n        if (curr->val >= prev)\n            cnt++;\n"
+    "        F(curr->left, max(curr->val, prev));\n        F(curr->right, max(curr->val, prev));\n    }\n"
+    "public:\n    int maxDepth(TreeNode* root) {\n        F(root, root->val);\n        return cnt;\n    }\n};\n"
+)
+
+
+@pytest.mark.skipif(find_compiler() is None, reason="no C++ compiler")
+async def test_cpp_native_trace_is_real_and_needs_no_ai(make_client) -> None:
+    llm = FakeLLM(json.dumps({"summary": "Counts good nodes."}))
+    async with make_client(llm) as client:
+        body = (await client.post("/api/analyze", json={
+            "code": GOOD_NODES, "language": "cpp", "problem": "104", "test_input": ["[3,1,4,3,null,1,5]"]})).json()
+    run = body["dry_run"]
+    assert run["source"] == "trace" and run["error"] is None
+    assert len(llm.prompts) == 1  # only the insight call — no AI trace
+    assert not any("AI model" in w for w in body["warnings"])
+    trees = [s["data_structure_state"] for s in run["steps"] if s["data_structure_state"]]
+    assert all(t["state"]["root"]["value"] == 3 for t in trees)  # whole tree even inside F()
+    curr_targets = {h["target"] for t in trees for h in t["highlights"] if h["label"] == "curr"}
+    assert len(curr_targets) >= 5  # the highlight walks the tree
+    assert any(s["function"] == "F" and s["depth"] >= 2 for s in run["steps"])
+    assert run["steps"][-1]["variables"]["cnt"] == "4"
+
+
+@pytest.mark.skipif(find_compiler() is None, reason="no C++ compiler")
+async def test_cpp_free_program_native_trace(make_client) -> None:
+    prog = ("#include <iostream>\n#include <vector>\nusing namespace std;\nint main() {\n"
+            "    vector<int> a = {3, 1, 2};\n    sort(a.begin(), a.end());\n"
+            "    for (int x : a) cout << x << ' ';\n    return 0;\n}\n")
+    async with make_client() as client:
+        body = (await client.post("/api/analyze", json={"code": prog, "language": "cpp"})).json()
+    run = body["dry_run"]
+    assert run["source"] == "trace" and run["steps"][-1]["output_so_far"].startswith("1 2 3")
+    assert run["steps"][1]["data_structure_state"]["type"] == "array"
+
+
+async def test_chat_streams_plain_text_with_context(make_client) -> None:
+    llm = FakeLLM("Because `dp[i]` depends on the two previous stairs.")
+    async with make_client(llm) as client:
+        res = await client.post("/api/chat/stream", json={
+            "messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello!"},
+                         {"role": "user", "content": "Why dp[i - 2]?"}],
+            "code": CPP, "language": "cpp", "problem": "70", "context": "Current step: line 5, i = 3"})
+    tokens = [json.loads(line[6:])["text"] for line in res.text.splitlines()
+              if line.startswith("data:") and '"text"' in line]
+    assert "".join(tokens) == "Because `dp[i]` depends on the two previous stairs."
+    prompt = llm.prompts[0]
+    assert llm.json_modes == [False]  # chat is prose, not JSON
+    assert "70. Climbing Stairs" in prompt and "  5 |" in prompt and "line 5, i = 3" in prompt
+    assert "Student: hi" in prompt and "Why dp[i - 2]?" in prompt
+
+
+async def test_chat_without_model_explains(make_client) -> None:
+    async with make_client() as client:
+        res = await client.post("/api/chat/stream", json={"messages": [{"role": "user", "content": "help"}]})
+    assert "event: error" in res.text and "isn't running" in res.text

@@ -14,6 +14,7 @@ from api.schemas.request import AnalyzeRequest, CodeRequest, ExplainRequest
 from api.schemas.response import AnalysisResult, Explanation
 from core.cache import LRUCache, cache_key
 from core.config import Settings
+from core.cpp_tracer import NativeTraceUnavailable, trace_cpp_problem
 from core.json_utils import extract_json
 from core.lc_problem import LeetCodeClient
 from core.lc_runtime import PRELUDE, prepare_test
@@ -56,17 +57,21 @@ class AnalysisService:
         return fill_offline(enrich_offline(result), req.code)
 
     async def _static_native_problem(self, req: AnalyzeRequest) -> AnalysisResult:
-        """LeetCode mode in C++: static analysis now, AI dry run on the chosen test input."""
+        """LeetCode mode in C++: native execution trace on the chosen test (AI trace as fallback)."""
         problem = await self.leetcode.get(req.problem or "")
         lines = req.test_input or (problem.examples[0].input if problem.examples else [])
         names = ["operations", "arguments"] if problem.design else [p.name for p in problem.params]
         label = ", ".join(f"{n} = {v.strip()}" for n, v in zip(names, lines, strict=False))
-        result = await run_static(req.code, req.language, None, self.settings)
-        result = fill_offline(result, req.code)
-        return result.model_copy(update={
-            "algorithm_name": f"{problem.id}. {problem.title}",
-            "dry_run": result.dry_run.model_copy(update={"input_example": label}),
-        })
+        result = fill_offline(await run_static(req.code, req.language, None, self.settings, native_cpp=False), req.code)
+        dry_run = result.dry_run.model_copy(update={"input_example": label})
+        if req.language == "cpp":
+            try:
+                dry_run = await trace_cpp_problem(problem, req.code, lines, label,
+                                                  max_steps=self.settings.trace_max_steps,
+                                                  memory_mb=self.settings.sandbox_memory_mb)
+            except NativeTraceUnavailable:
+                pass  # AI trace fallback happens in analyze_stream
+        return result.model_copy(update={"algorithm_name": f"{problem.id}. {problem.title}", "dry_run": dry_run})
 
     async def _problem_context(self, req: AnalyzeRequest) -> ProblemContext | None:
         """Resolve LeetCode mode: which problem and which test case drives the dry run."""

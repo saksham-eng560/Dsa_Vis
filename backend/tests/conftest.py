@@ -20,12 +20,14 @@ class FakeLLM:
         self.dry_run = dry_run  # optional separate reply for the dry-run prompt
         self._available = available
         self.prompts: list[str] = []
+        self.json_modes: list[bool] = []
 
     async def available(self) -> bool:
         return self._available
 
-    async def stream(self, system: str, prompt: str) -> AsyncIterator[str]:
+    async def stream(self, system: str, prompt: str, json_mode: bool = True) -> AsyncIterator[str]:
         self.prompts.append(prompt)
+        self.json_modes.append(json_mode)
         text = self.dry_run if self.dry_run is not None and prompt.startswith("Dry-run") else self.response
         for i in range(0, len(text), 7):
             yield text[i : i + 7]

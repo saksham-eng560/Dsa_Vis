@@ -134,3 +134,47 @@ export async function* analyzeStream(req: AnalyzeRequest, signal?: AbortSignal):
     }
   }
 }
+
+
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** Stream the tutor's reply token by token (plain text). */
+export async function* chatStream(
+  body: { messages: ChatTurn[]; code: string; language: string; problem: string | null; context: string },
+  signal?: AbortSignal,
+): AsyncGenerator<{ text?: string; error?: string }> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw err;
+    throw new ApiError('Cannot reach the CodeLens server. Is the backend running?', 0);
+  }
+  if (!res.ok || !res.body) throw await toError(res);
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+    let idx: number;
+    while ((idx = buffer.indexOf('\n\n')) >= 0) {
+      const frame = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      const ev = /^event: (\w+)/m.exec(frame)?.[1];
+      const data = /^data: (.*)$/m.exec(frame)?.[1];
+      if (!data) continue;
+      const payload = JSON.parse(data) as { text?: string; detail?: string };
+      if (ev === 'token' && payload.text) yield { text: payload.text };
+      else if (ev === 'error') yield { error: payload.detail ?? 'The AI model failed.' };
+    }
+  }
+}

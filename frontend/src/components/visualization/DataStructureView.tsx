@@ -37,7 +37,7 @@ function Renderer({ ds }: { ds: DataStructureState }) {
     case 'hash_map':
       return <HashMapView entries={ds.state.entries ?? []} highlights={ds.highlights} />;
     case 'linked_list':
-      return <LinkedListView nodes={ds.state.nodes ?? []} cycleTo={ds.state.cycle_to} highlights={ds.highlights} />;
+      return <LinkedListView nodes={ds.state.nodes ?? []} edges={ds.state.edges} cycleTo={ds.state.cycle_to} highlights={ds.highlights} />;
     case 'tree':
       return <TreeView root={ds.state.root ?? null} highlights={ds.highlights} />;
     case 'graph':

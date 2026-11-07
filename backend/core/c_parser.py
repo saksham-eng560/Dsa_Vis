@@ -30,6 +30,11 @@ class Stmt:
     body: list["Stmt"] = field(default_factory=list)
     orelse: list["Stmt"] = field(default_factory=list)
     name: str = ""
+    pos: int = -1  # source offset where the statement starts
+    body_pos: int = -1  # offset just after the body's `{` (-1: no braced body)
+    members: list["Stmt"] = field(default_factory=list)  # class/struct non-function members
+    end: int = -1  # source offset just after the statement
+    orelse_pos: int = -1  # offset after the else-body's `{` (-1: brace-less or no else)
 
 
 class CParser:
@@ -110,31 +115,49 @@ class CParser:
             self.pos += 1
 
     def _body(self) -> list[Stmt]:
+        return self._body_at()[0]
+
+    def _body_at(self) -> tuple[list[Stmt], int]:
+        """Parse a braced block or a single statement; also return the offset after `{`."""
         self._skip_inline_ws()
         if self.pos < len(self.src) and self.src[self.pos] == "{":
             self.pos += 1
-            return self.block()
+            body_pos = self.pos
+            return self.block(), body_pos
         stmt = self.statement()
-        return [stmt] if stmt else []
+        return ([stmt] if stmt else []), -1
 
     def statement(self) -> Stmt | None:
+        start = self.pos
+        stmt = self._statement()
+        if stmt is not None and stmt.pos < 0:
+            stmt.pos = start
+        if stmt is not None:
+            stmt.end = self.pos
+        return stmt
+
+    def _statement(self) -> Stmt | None:
         start = self.pos
         line = self.line_of(start)
         word = self._peek_word()
         if word in ("if", "while", "for", "switch"):
             self.pos += len(word)
             header = self._header()
-            body = self._body()
+            body, body_pos = self._body_at()
             if word == "if":
                 orelse: list[Stmt] = []
+                orelse_pos = -1
+                save = self.pos
                 self._skip_inline_ws()
                 if self._peek_word() == "else":
                     self.pos += 4
-                    orelse = self._body()
-                return Stmt("if", header, line, body, orelse)
+                    orelse, orelse_pos = self._body_at()
+                else:
+                    self.pos = save  # keep `end` right after the if-body
+                return Stmt("if", header, line, body, orelse, body_pos=body_pos, orelse_pos=orelse_pos)
             if word == "switch":
                 return Stmt("block", f"switch ({header})", line, body)
-            return Stmt("loop", f"{word} {header}", line, body)
+            return Stmt("loop", f"{word} {header}", line, body, body_pos=body_pos)
         if word in ("do", "loop", "try"):
             self.pos += len(word)
             body = self._body()
@@ -189,13 +212,14 @@ class CParser:
             if m and not is_container and word not in _CONTROL:
                 self.pos += 1
                 name = next(g for g in m.groups() if g)
-                return Stmt("func", text, line, self.block(), name=name)
+                body_pos = self.pos
+                return Stmt("func", text, line, self.block(), name=name, body_pos=body_pos)
             # object literal / initializer / class body: recurse to find nested functions
             self.pos += 1
             inner = self.block()
             funcs = [s for s in inner if s.kind == "func"]
             if funcs:
-                return Stmt("block", text, line, funcs)
+                return Stmt("block", text, line, funcs, members=[s for s in inner if s.kind != "func"])
             self._simple_text()  # swallow the rest, e.g. `;` after `x = {…}`
             return Stmt("simple", text + " {…}", line)
         if not text:
