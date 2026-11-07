@@ -67,7 +67,7 @@ async def test_llm_dry_run_used_for_other_languages(make_client) -> None:
     steps = body["dry_run"]["steps"]
     assert len(steps) == 2 and steps[0]["variables"] == {"i": "0"}
     assert steps[0]["data_structure_state"]["highlights"][0]["target"] == 0
-    assert steps[1]["data_structure_state"] is None
+    assert steps[1]["data_structure_state"]["state"] == {"values": [2, 1]}  # unusable snapshot → carried forward
 
 
 async def test_invalid_llm_json_falls_back(make_client) -> None:
@@ -173,3 +173,76 @@ async def test_leetcode_cpp_run_and_search(make_client) -> None:
     assert hits[0]["slug"] == "climbing-stairs"
     assert body["language"] == "cpp" and body["algorithm_name"] == "70. Climbing Stairs"
     assert body["dry_run"]["input_example"] == "n = 5" and body["flowchart"]["nodes"]
+
+
+SLOPPY_TRACE = (  # what a 7B model really produces: aliases, strings for numbers, bare lists, truncation
+    '{"input_example": "n = 3", "steps": ['
+    '{"step": "1", "line": "3", "action": "dp starts as [1, 1, 0, 0]", "variables": {"n": 3, "dp": [1, 1, 0, 0]},'
+    ' "data_structure_state": {"type": "vector", "state": [1, 1, 0, 0],'
+    ' "highlights": [{"index": 2, "color": "orange"}]}},'
+    '{"line": 4, "description": "dp[2] = dp[1] + dp[0] = 2", "variables": {"i": 2},'
+    ' "data_structure_state": {"type": "DP Table", "state": [[1, 1, 2, 0]]}},'
+    '{"line": 5, "description": "loop continues"},'
+    '{"line": 6, "description": "return dp[3] = 3", "variables": {"result": 3}, "data_stru'
+)
+CPP = ("class Solution {\npublic:\n    int climbStairs(int n) {\n        vector<int> dp(n + 1, 1);\n"
+       "        for (int i = 2; i <= n; i++) dp[i] = dp[i - 1] + dp[i - 2];\n        return dp[n];\n    }\n};\n")
+
+
+async def test_cpp_two_phase_ai_dry_run_tolerates_sloppy_output(make_client) -> None:
+    insight = json.dumps({"summary": "Bottom-up DP.", "complexity": {
+        "time": {"best": "O(n)", "average": "O(n)", "worst": "O(n)", "explanation": "one loop"},
+        "space": {"complexity": "O(n)", "explanation": "dp array"}}})  # no concepts/edge cases at all
+    llm = FakeLLM(insight, dry_run=SLOPPY_TRACE)
+    async with make_client(llm) as client:
+        res = await client.post("/api/analyze/stream", json={
+            "code": CPP, "language": "cpp", "problem": "70", "test_input": ["3"]})
+    events = [line.split(": ", 1)[1] for line in res.text.splitlines() if line.startswith("event:")]
+    stages = [json.loads(line[6:])["stage"] for line in res.text.splitlines()
+              if line.startswith("data:") and '"stage"' in line and '"message"' in line]
+    assert stages == ["static", "llm", "dryrun"]
+    assert events.count("partial") == 2 and events[-2:] == ["result", "done"]
+    final = json.loads([line for line in res.text.splitlines() if line.startswith("data:")][-2][6:])
+    run = final["dry_run"]
+    assert run["source"] == "llm" and run["input_example"] == "n = 3" and len(run["steps"]) == 4
+    first, second, third = run["steps"][:3]
+    assert first["line"] == 3 and first["description"].startswith("dp starts")
+    assert first["data_structure_state"]["type"] == "array"
+    assert first["data_structure_state"]["highlights"] == [{"target": 2, "color": "yellow", "label": ""}]
+    assert second["data_structure_state"]["type"] == "matrix"
+    assert third["data_structure_state"]["state"] == second["data_structure_state"]["state"]  # carried forward
+    assert "Dry-run this cpp code" in llm.prompts[1] and "n = 3" in llm.prompts[1]
+    assert final["summary"] == "Bottom-up DP." and final["complexity"]["source"] == "llm"
+    assert not any("needs AI model" in w for w in final["warnings"])
+    assert final["algorithm_name"] == "70. Climbing Stairs"
+
+
+async def test_llm_omitting_fields_keeps_offline_explanations(make_client) -> None:
+    async with make_client(FakeLLM(json.dumps({"summary": "Swaps neighbours."}))) as client:
+        body = (await client.post("/api/analyze", json={"code": BUBBLE})).json()
+    assert body["summary"] == "Swaps neighbours."
+    assert body["key_concepts"] and body["edge_cases"] and body["optimizations"]  # not wiped
+
+
+async def test_unusable_ai_trace_explains_itself(make_client) -> None:
+    llm = FakeLLM(json.dumps({"summary": "x"}), dry_run="sorry, I cannot")
+    async with make_client(llm) as client:
+        body = (await client.post("/api/analyze", json={"code": CPP, "language": "cpp"})).json()
+    assert body["dry_run"]["steps"] == []
+    assert any("didn't return a usable dry run" in w for w in body["warnings"])
+
+
+async def test_explain_never_empty_offline(make_client) -> None:
+    async with make_client() as client:
+        body = (await client.post("/api/analyze", json={"code": CPP, "language": "cpp", "problem": "70"})).json()
+    assert "Dynamic Programming" in [c["concept"] for c in body["key_concepts"]]
+    assert body["edge_cases"] and body["summary"]
+
+
+async def test_failed_ai_dry_run_is_not_cached(make_client) -> None:
+    llm = FakeLLM(json.dumps({"summary": "x"}), dry_run="garbage")
+    async with make_client(llm) as client:
+        await client.post("/api/analyze", json={"code": CPP, "language": "cpp"})
+        llm.dry_run = SLOPPY_TRACE
+        body = (await client.post("/api/analyze", json={"code": CPP, "language": "cpp"})).json()
+    assert len(body["dry_run"]["steps"]) == 4  # retried, not served from cache

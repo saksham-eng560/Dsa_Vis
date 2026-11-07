@@ -58,26 +58,45 @@ _DS_SHAPES = (
 )
 
 
-def analysis_prompt(code: str, language: str, hints: str, need_dry_run: bool) -> str:
-    """Main analysis prompt. `hints` summarises static-analysis findings."""
-    example = dict(_EXAMPLE_INSIGHT)
-    if need_dry_run:
-        example["dry_run"] = _EXAMPLE_DRY_RUN
-    numbered = "\n".join(f"{i + 1:>3} | {line}" for i, line in enumerate(code.splitlines()))
-    parts = [
+def _numbered(code: str) -> str:
+    return "\n".join(f"{i + 1:>3} | {line}" for i, line in enumerate(code.splitlines()))
+
+
+def analysis_prompt(code: str, language: str, hints: str, need_dry_run: bool = False) -> str:
+    """Insight prompt: summary, complexity, concepts, edge cases (no trace — see `dry_run_prompt`).
+
+    Kept deliberately small so a 7B model answers in seconds and never truncates.
+    `need_dry_run` is accepted for backwards compatibility and ignored.
+    """
+    del need_dry_run
+    return "\n\n".join([
         f"Analyze this {language} code (line numbers on the left are for reference only):",
-        numbered,
+        _numbered(code),
         f"Static analyzer notes (heuristic, may be wrong — correct them if needed):\n{hints}",
         "Respond with JSON using exactly the keys of this example (values are illustrative):",
-        json.dumps(example, ensure_ascii=False),
-    ]
-    if need_dry_run:
-        parts.append(
-            "For dry_run choose a small representative input and trace 6-25 key steps. "
-            "`line` must be the real line number executing. " + _DS_SHAPES
-        )
-    parts.append("Complexities must use Big-O notation such as O(1), O(log n), O(n), O(n log n), O(n²), O(2ⁿ).")
-    return "\n\n".join(parts)
+        json.dumps(_EXAMPLE_INSIGHT, ensure_ascii=False),
+        "Complexities must use Big-O notation such as O(1), O(log n), O(n), O(n log n), O(n²), O(2ⁿ). "
+        "Give 2-4 key_concepts and 2-5 edge_cases.",
+    ])
+
+
+def dry_run_prompt(code: str, language: str, input_label: str, title: str) -> str:
+    """Focused trace prompt: execute the code by hand on ONE input, compactly."""
+    what = f" (LeetCode “{title}”)" if title else ""
+    given = (f"Trace it on exactly this input: {input_label}" if input_label
+             else "Choose one small representative input and state it in input_example.")
+    return "\n\n".join([
+        f"Dry-run this {language} code{what} step by step, like a teacher at a whiteboard.",
+        _numbered(code),
+        given,
+        "Respond with JSON exactly like this example (values are illustrative):",
+        json.dumps(_EXAMPLE_DRY_RUN, ensure_ascii=False),
+        "Rules: 8-20 steps; each step is one meaningful action (a comparison, an update, a call, a return); "
+        "`line` is the real line number from the listing; `variables` holds only the important variables "
+        "with short values; include data_structure_state whenever an array/grid/stack/map/list/tree/graph "
+        "changes or is read. The last step must show the final return value in its description.",
+        _DS_SHAPES,
+    ])
 
 
 def explain_prompt(code: str, language: str, eli5: bool) -> str:

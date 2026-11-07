@@ -7,6 +7,7 @@ import { useDryRunKeys, useDryRunPlayback } from '../../hooks/useDryRun';
 import { useAppStore } from '../../stores/appStore';
 import type { DryRun, DryRunStep } from '../../types';
 import { DataStructureView } from './DataStructureView';
+import { DryRunEmpty } from './DryRunEmpty';
 import { DryRunPlayer } from './DryRunPlayer';
 import { OutputPanel } from './OutputPanel';
 import { VariableWatch } from './VariableWatch';
@@ -24,17 +25,7 @@ export function DryRunTab({ dryRun, active }: { dryRun: DryRun; active: boolean 
   const index = useAppStore((s) => s.step);
   const step = dryRun.steps[index];
 
-  if (!dryRun.steps.length) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-        <Cpu size={28} aria-hidden />
-        <p className="max-w-md">
-          {dryRun.error ??
-            'No execution steps for this code. Python is traced live; other languages need the AI model running (Ollama).'}
-        </p>
-      </div>
-    );
-  }
+  if (!dryRun.steps.length) return <DryRunEmpty dryRun={dryRun} />;
 
   return (
     <div className="flex flex-col gap-3">

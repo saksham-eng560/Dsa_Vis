@@ -99,7 +99,7 @@ async def run_static(
     else:
         flowchart = c_flowchart(code)
         complexity = estimate(c_facts(code))
-        warnings.append(f"Step-by-step execution of {lang} needs the AI model (only Python is traced live).")
+        warnings.append(f"Only Python is traced live — the {lang} dry run comes from the AI model (needs AI model).")
 
     algorithm = problem.title if problem else guess_algorithm(code)
     summary = (

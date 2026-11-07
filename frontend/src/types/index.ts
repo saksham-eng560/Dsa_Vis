@@ -158,7 +158,7 @@ export interface AnalyzeRequest {
 export type StreamEvent =
   | { event: 'stage'; data: { stage: string; message: string } }
   | { event: 'partial' | 'result'; data: AnalysisResult }
-  | { event: 'token'; data: { chars: number } }
+  | { event: 'token'; data: { chars: number; phase?: 'insight' | 'dryrun' } }
   | { event: 'error'; data: { detail: string } }
   | { event: 'done'; data: Record<string, never> };
 

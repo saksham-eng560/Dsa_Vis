@@ -15,8 +15,9 @@ class FakeLLM:
     name = "fake"
     model = "fake-model"
 
-    def __init__(self, response: str = "", available: bool = True) -> None:
+    def __init__(self, response: str = "", available: bool = True, dry_run: str | None = None) -> None:
         self.response = response
+        self.dry_run = dry_run  # optional separate reply for the dry-run prompt
         self._available = available
         self.prompts: list[str] = []
 
@@ -25,8 +26,9 @@ class FakeLLM:
 
     async def stream(self, system: str, prompt: str) -> AsyncIterator[str]:
         self.prompts.append(prompt)
-        for i in range(0, len(self.response), 7):
-            yield self.response[i : i + 7]
+        text = self.dry_run if self.dry_run is not None and prompt.startswith("Dry-run") else self.response
+        for i in range(0, len(text), 7):
+            yield text[i : i + 7]
 
 
 @pytest.fixture

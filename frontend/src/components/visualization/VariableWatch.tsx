@@ -8,7 +8,7 @@ export function VariableWatch({ step }: { step: DryRunStep | undefined }) {
   return (
     <div className="glass-inset flex min-h-0 flex-col p-3">
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
-        Variables {step && <span className="normal-case tracking-normal">· {step.function === '<module>' ? 'global scope' : `${step.function}()`}</span>}
+        Variables {step && <span className="normal-case tracking-normal">· {step.function === '<ai>' ? 'AI trace' : step.function === '<module>' ? 'global scope' : `${step.function}()`}</span>}
       </h3>
       {entries.length === 0 ? (
         <p className="text-xs" style={{ color: 'var(--text-faint)' }}>No variables in scope yet.</p>

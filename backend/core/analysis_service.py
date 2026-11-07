@@ -18,12 +18,16 @@ from core.json_utils import extract_json
 from core.lc_problem import LeetCodeClient
 from core.lc_runtime import PRELUDE, prepare_test
 from core.llm_engine import LLMClient, LLMUnavailableError, complete
-from core.llm_merge import merge_analysis, merge_explanation
+from core.llm_merge import merge_analysis, merge_dry_run, merge_explanation
 from core.static_pipeline import ProblemContext, run_static
+from models.concepts import fill_offline
 from models.knowledge import enrich_offline
-from models.prompts import SYSTEM_PROMPT, analysis_prompt, explain_prompt
+from models.prompts import SYSTEM_PROMPT, analysis_prompt, dry_run_prompt, explain_prompt
 
 Event = dict[str, Any]
+
+
+_AI_FAILURE_MARKERS = ("unavailable", "not valid JSON", "didn't return a usable", "dry run failed")
 
 
 class CodeTooLargeError(ValueError):
@@ -49,7 +53,7 @@ class AnalysisService:
             return await self._static_native_problem(req)
         context = await self._problem_context(req) if isinstance(req, AnalyzeRequest) else None
         result = await run_static(req.code, req.language, req.entry_call, self.settings, context)
-        return enrich_offline(result)
+        return fill_offline(enrich_offline(result), req.code)
 
     async def _static_native_problem(self, req: AnalyzeRequest) -> AnalysisResult:
         """LeetCode mode in C++: static analysis now, AI dry run on the chosen test input."""
@@ -58,6 +62,7 @@ class AnalysisService:
         names = ["operations", "arguments"] if problem.design else [p.name for p in problem.params]
         label = ", ".join(f"{n} = {v.strip()}" for n, v in zip(names, lines, strict=False))
         result = await run_static(req.code, req.language, None, self.settings)
+        result = fill_offline(result, req.code)
         return result.model_copy(update={
             "algorithm_name": f"{problem.id}. {problem.title}",
             "dry_run": result.dry_run.model_copy(update={"input_example": label}),
@@ -95,28 +100,45 @@ class AnalysisService:
 
         result = static
         if req.use_llm and await self.llm.available():
-            yield {"event": "stage", "data": {"stage": "llm", "message": f"Asking {self.llm.model}"}}
-            prompt = analysis_prompt(
-                req.code, static.language, _hints(static), need_dry_run=static.dry_run.source != "trace"
-            )
-            chunks: list[str] = []
+            model = self.llm.model
+            # Phase 1 — insights (small, fast): fills Explain + Complexity.
+            yield {"event": "stage", "data": {"stage": "llm", "message": f"Explaining with {model}"}}
+            prompt = analysis_prompt(req.code, static.language, _hints(static))
+            text: list[str] = []
             try:
-                async for chunk in self.llm.stream(SYSTEM_PROMPT, prompt):
-                    chunks.append(chunk)
-                    if len(chunks) % 8 == 0:
-                        yield {"event": "token", "data": {"chars": sum(map(len, chunks))}}
-                data = extract_json("".join(chunks))
-                if data is None:
-                    result = _warn(static, "The AI response was not valid JSON; showing static analysis.")
-                else:
-                    result = merge_analysis(static, data)
+                async for event in self._stream(prompt, "insight", text):
+                    yield event
+                data = extract_json("".join(text))
+                result = _keep_title(merge_analysis(static, data), static, req) if data else _warn(
+                    static, "The AI explanation was not valid JSON; showing static analysis.")
             except (LLMUnavailableError, httpx.HTTPError, OSError, ValueError) as exc:
                 result = _warn(static, f"AI model unavailable ({exc}); showing static analysis.")
+            # Phase 2 — dry run, only when we couldn't trace the code for real (e.g. C++).
+            if static.dry_run.source != "trace" and result.llm_used:
+                yield {"event": "partial", "data": result}
+                yield {"event": "stage", "data": {"stage": "dryrun", "message": f"Tracing your input with {model}"}}
+                trace_prompt = dry_run_prompt(req.code, static.language, static.dry_run.input_example,
+                                              static.algorithm_name if req.problem else "")
+                text = []
+                try:
+                    async for event in self._stream(trace_prompt, "dryrun", text):
+                        yield event
+                    result = merge_dry_run(result, extract_json("".join(text)))
+                except (LLMUnavailableError, httpx.HTTPError, OSError, ValueError) as exc:
+                    result = _warn(result, f"The AI dry run failed ({exc}).")
         elif req.use_llm:
             result = _warn(static, "No AI model reachable — showing static analysis only.")
 
-        self.cache.set(key, result)
+        if not any(marker in w for w in result.warnings for marker in _AI_FAILURE_MARKERS):
+            self.cache.set(key, result)  # failed AI phases are retried next time, not replayed
         yield {"event": "result", "data": result}
+
+    async def _stream(self, prompt: str, phase: str, sink: list[str]) -> AsyncIterator[Event]:
+        """Stream one LLM call into `sink`, emitting throttled progress events."""
+        async for chunk in self.llm.stream(SYSTEM_PROMPT, prompt):
+            sink.append(chunk)
+            if len(sink) % 8 == 0:
+                yield {"event": "token", "data": {"chars": sum(map(len, sink)), "phase": phase}}
 
     async def explain(self, req: ExplainRequest) -> Explanation:
         """Explanation (optionally ELI5); static fallback when no LLM."""
@@ -140,6 +162,11 @@ class AnalysisService:
                 pass
         self.explain_cache.set(key, result)
         return result
+
+
+def _keep_title(result: AnalysisResult, static: AnalysisResult, req: AnalyzeRequest) -> AnalysisResult:
+    """In LeetCode mode the problem title ("70. Climbing Stairs") beats the model's name for it."""
+    return result.model_copy(update={"algorithm_name": static.algorithm_name}) if req.problem else result
 
 
 def _warn(result: AnalysisResult, message: str) -> AnalysisResult:
