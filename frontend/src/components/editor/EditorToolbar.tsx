@@ -5,6 +5,7 @@ import { useRef } from 'react';
 import { useLeetCodeActions } from '../../hooks/useLeetCodeActions';
 import { useAppStore } from '../../stores/appStore';
 import { useLeetCode } from '../../stores/leetcodeStore';
+import { LanguageSwitch } from '../leetcode/LanguageSwitch';
 import type { Language } from '../../types';
 import { PRESETS } from '../../utils/presets';
 import { GlowButton } from '../ui/GlowButton';
@@ -39,7 +40,7 @@ export function EditorToolbar({ detected, onAnalyze, onShare, onFile }: EditorTo
   return (
     <div className="flex flex-wrap items-center gap-2">
       {lcMode ? (
-        <span className="chip !h-9 !rounded-xl !px-3 !text-[0.8125rem]">Python 3</span>
+        <LanguageSwitch />
       ) : (
         <LanguageSelector value={language} detected={detected} onChange={setLanguage} />
       )}

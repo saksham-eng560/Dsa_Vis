@@ -33,6 +33,7 @@
   --text-muted: #9ca3c7;
   --text-faint: #6b7299;
   --surface-strong: rgba(15, 11, 30, 0.72);
+  --surface-solid: #181230;
   --orb-1: rgba(129, 140, 248, 0.35);
   --orb-2: rgba(52, 211, 153, 0.22);
   --orb-3: rgba(192, 132, 252, 0.28);
@@ -59,6 +60,7 @@
   --text-muted: #4b4f75;
   --text-faint: #7c80a6;
   --surface-strong: rgba(255, 255, 255, 0.85);
+  --surface-solid: #ffffff;
   --orb-1: rgba(129, 140, 248, 0.28);
   --orb-2: rgba(52, 211, 153, 0.2);
   --orb-3: rgba(192, 132, 252, 0.2);
@@ -104,6 +106,8 @@ body {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
+/* Component classes live in a layer so Tailwind utilities (pl-9, h-8, …) can override them. */
+@layer components {
 /* ------------------------------ Glass surfaces ----------------------------- */
 .glass {
   background: var(--glass-bg);
@@ -169,10 +173,6 @@ body {
   background-size: 200% 200%;
   box-shadow: 0 0 36px rgba(129, 140, 248, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-@keyframes glow-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
 .ripple {
   position: absolute;
   border-radius: 9999px;
@@ -181,8 +181,6 @@ body {
   animation: ripple 0.6s ease-out forwards;
   pointer-events: none;
 }
-@keyframes ripple { to { transform: scale(4); opacity: 0; } }
-
 .field {
   height: 2.25rem;
   border-radius: 0.75rem;
@@ -226,6 +224,14 @@ input[type='range'].slider { accent-color: var(--accent-primary); }
   border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
   box-shadow: 0 0 18px color-mix(in srgb, var(--tone) 22%, transparent);
 }
+
+}
+
+@keyframes glow-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes ripple { to { transform: scale(4); opacity: 0; } }
 
 /* ------------------------------ Scrollbars ------------------------------- */
 .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--glass-border-hover) transparent; }

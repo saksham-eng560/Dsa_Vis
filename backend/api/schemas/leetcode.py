@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 CompareMode = Literal["exact", "unordered", "unordered_nested"]
 TestStatus = Literal["passed", "failed", "error", "timeout", "ran"]
+SolutionLanguage = Literal["python", "cpp"]
 
 
 class LCParam(BaseModel):
@@ -44,7 +45,8 @@ class LCProblem(LCSummary):
     class_name: str | None = None
     constructor_params: list[LCParam] = Field(default_factory=list)
     methods: list[LCMethod] = Field(default_factory=list)
-    starter_code: str = ""
+    starter_code: str = ""  # Python 3
+    starter_code_cpp: str = ""  # C++ ("" when a type is unsupported)
     examples: list[LCExample] = Field(default_factory=list)
     compare: CompareMode = "exact"
     source: Literal["bundled", "leetcode"] = "bundled"
@@ -61,6 +63,7 @@ class RunTestsRequest(BaseModel):
     problem: str = Field(min_length=1, max_length=200)
     tests: list[LCTestCase] = Field(min_length=1, max_length=30)
     compare: CompareMode | None = None  # default: the problem's own mode
+    language: SolutionLanguage = "python"
 
 
 class TestResult(BaseModel):

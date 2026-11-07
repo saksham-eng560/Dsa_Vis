@@ -93,3 +93,21 @@ describe('diagram helpers', () => {
     expect(text).not.toContain('m([');
   });
 });
+
+describe('problem search ranking', async () => {
+  const { filterCatalog } = await import('../hooks/useProblemSearch');
+  const catalog = [
+    { id: '1', slug: 'two-sum', title: 'Two Sum', difficulty: 'Easy' },
+    { id: '15', slug: '3sum', title: '3Sum', difficulty: 'Medium' },
+    { id: '167', slug: 'two-sum-ii', title: 'Two Sum II', difficulty: 'Medium' },
+    { id: '206', slug: 'reverse-linked-list', title: 'Reverse Linked List', difficulty: 'Easy' },
+  ];
+  it('ranks exact number, then number prefix', () => {
+    expect(filterCatalog(catalog, '1').map((p) => p.id)).toEqual(['1', '15', '167']);
+  });
+  it('matches title words and slugs', () => {
+    expect(filterCatalog(catalog, 'two sum').map((p) => p.id)).toEqual(['1', '167']);
+    expect(filterCatalog(catalog, 'linked').map((p) => p.id)).toEqual(['206']);
+    expect(filterCatalog(catalog, '')).toHaveLength(4);
+  });
+});

@@ -3,7 +3,7 @@
  * In dev, Vite proxies `/api` to FastAPI; set `VITE_API_URL` for other hosts.
  */
 import type { AnalyzeRequest, Explanation, HealthStatus, StreamEvent } from '../types';
-import type { CompareMode, LCProblem, LCSummary, RunTestsResponse } from '../types/leetcode';
+import type { CompareMode, LCProblem, LCSummary, RunTestsResponse, SolutionLanguage } from '../types/leetcode';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -66,6 +66,9 @@ export const fetchHealth = (signal?: AbortSignal) => get<HealthStatus>('/api/hea
 
 export const fetchProblemList = () => get<LCSummary[]>('/api/leetcode/problems');
 
+export const searchProblems = (q: string, signal?: AbortSignal) =>
+  get<LCSummary[]>(`/api/leetcode/search?q=${encodeURIComponent(q)}`, signal);
+
 export const fetchProblem = (ref: string) => get<LCProblem>(`/api/leetcode/problems/${encodeURIComponent(ref.trim())}`);
 
 export function runTests(
@@ -73,8 +76,9 @@ export function runTests(
   problem: string,
   tests: { input: string[]; expected: string | null }[],
   compare: CompareMode | null,
+  language: SolutionLanguage,
 ) {
-  return post<RunTestsResponse>('/api/leetcode/run', { code, problem, tests, compare });
+  return post<RunTestsResponse>('/api/leetcode/run', { code, problem, tests, compare, language });
 }
 
 export function explain(code: string, language: string, eli5: boolean, signal?: AbortSignal) {

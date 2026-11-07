@@ -79,3 +79,21 @@ async def test_premium_and_network_errors(tmp_path: Path) -> None:
     with pytest.raises(ProblemNotFoundError, match="Couldn't reach"):
         await offline.get("some-new-problem")
     assert (await offline.get("1")).title == "Two Sum"  # bundled problems work offline
+
+
+async def test_live_search(tmp_path: Path) -> None:
+    hits = [{"questionFrontendId": "887", "title": "Super Egg Drop", "titleSlug": "super-egg-drop",
+             "difficulty": "Hard", "paidOnly": False},
+            {"questionFrontendId": "1", "title": "Locked", "titleSlug": "locked", "difficulty": "Easy",
+             "paidOnly": True}]
+    payload = {"data": {"problemsetQuestionList": {"questions": hits}}}
+    client, _ = _client(tmp_path, lambda b: httpx.Response(200, json=payload))
+    assert [s.slug for s in await client.search("egg")] == ["super-egg-drop"]
+
+
+def test_catalog_search() -> None:
+    from core.lc_problem import search_catalog
+
+    assert search_catalog("2")[0].id == "20"  # number prefix
+    assert [s.slug for s in search_catalog("tree")][:1] == ["binary-tree-inorder-traversal"]
+    assert search_catalog("zzz") == []

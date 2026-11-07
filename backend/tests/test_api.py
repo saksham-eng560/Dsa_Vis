@@ -155,3 +155,21 @@ async def test_design_problem_dry_run_focuses_on_object_state(make_client) -> No
     assert states[0]["type"] == "stack"
     assert body["complexity"]["time"]["worst"] == "O(1)"
     assert "__operations" not in body["dry_run"]["steps"][-1]["variables"]
+
+
+async def test_leetcode_cpp_run_and_search(make_client) -> None:
+    code = ("class Solution {\npublic:\n    int climbStairs(int n) {\n        int a = 1, b = 1;\n"
+            "        while (n--) { int c = a + b; a = b; b = c; }\n        return a;\n    }\n};\n")
+    async with make_client() as client:
+        problem = (await client.get("/api/leetcode/problems/70")).json()
+        run = (await client.post("/api/leetcode/run", json={
+            "code": code, "problem": "70", "language": "cpp",
+            "tests": [{"input": e["input"], "expected": e["expected"]} for e in problem["examples"]]})).json()
+        hits = (await client.get("/api/leetcode/search", params={"q": "stair"})).json()
+        body = (await client.post("/api/analyze", json={
+            "code": code, "language": "cpp", "problem": "70", "test_input": ["5"]})).json()
+    assert problem["starter_code_cpp"].startswith("class Solution {")
+    assert (run["passed"], run["total"]) == (2, 2)
+    assert hits[0]["slug"] == "climbing-stairs"
+    assert body["language"] == "cpp" and body["algorithm_name"] == "70. Climbing Stairs"
+    assert body["dry_run"]["input_example"] == "n = 5" and body["flowchart"]["nodes"]

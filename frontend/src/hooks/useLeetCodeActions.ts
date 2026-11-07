@@ -1,6 +1,6 @@
 /**
- * LeetCode mode actions: load problems (restoring your saved code per problem),
- * run all test cases, and visualise one test case as a dry run.
+ * LeetCode mode actions: load problems (restoring your saved code per problem
+ * and language), switch Python/C++, run all test cases, visualise one case.
  */
 import { useCallback, useEffect } from 'react';
 
@@ -8,22 +8,29 @@ import { toast } from '../components/ui/Toast';
 import { ApiError, fetchProblem, fetchProblemList, runTests } from '../services/api';
 import { useAppStore } from '../stores/appStore';
 import { useLeetCode } from '../stores/leetcodeStore';
-import type { TestResult } from '../types/leetcode';
+import type { LCProblem, SolutionLanguage, TestResult } from '../types/leetcode';
 import { loadJSON, saveJSON } from '../utils/storage';
 import { useAnalysis } from './useAnalysis';
 
-const codeKey = (slug: string) => `codelens.lc.code.${slug}`;
+const codeKey = (slug: string, lang: SolutionLanguage) => `codelens.lc.code.${slug}${lang === 'cpp' ? '.cpp' : ''}`;
 const message = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong.');
+const starter = (p: LCProblem, lang: SolutionLanguage) => (lang === 'cpp' ? p.starter_code_cpp : p.starter_code);
 
-/** Save the editor contents for the current problem (debounced). */
+/** Save the editor contents for the current problem + language (debounced). */
 export function usePersistProblemCode(): void {
   const code = useAppStore((s) => s.code);
   const slug = useLeetCode((s) => (s.mode === 'leetcode' ? s.problem?.slug : undefined));
+  const language = useLeetCode((s) => s.language);
   useEffect(() => {
     if (!slug) return;
-    const t = window.setTimeout(() => saveJSON(codeKey(slug), code), 400);
+    const t = window.setTimeout(() => saveJSON(codeKey(slug, language), code), 400);
     return () => window.clearTimeout(t);
-  }, [code, slug]);
+  }, [code, slug, language]);
+}
+
+/** Saved code for a problem in a language, or its starter code. */
+function codeFor(problem: LCProblem, lang: SolutionLanguage): string {
+  return loadJSON<string>(codeKey(problem.slug, lang), '') || starter(problem, lang);
 }
 
 export function useLeetCodeActions() {
@@ -34,7 +41,7 @@ export function useLeetCodeActions() {
     try {
       useLeetCode.getState().setCatalog(await fetchProblemList());
     } catch {
-      /* the picker still accepts any number / name */
+      /* the search box still accepts any number / name */
     }
   }, []);
 
@@ -46,18 +53,32 @@ export function useLeetCodeActions() {
       const problem = await fetchProblem(ref);
       lc.setProblem(problem);
       const app = useAppStore.getState();
-      app.setCode(loadJSON<string>(codeKey(problem.slug), '') || problem.starter_code);
-      app.setLanguage('python');
+      app.setCode(codeFor(problem, lc.language));
+      app.setLanguage(lc.language);
       app.clearResult();
       app.setTab('problem');
+      if (lc.language === 'cpp' && !problem.starter_code_cpp) {
+        toast('info', 'This problem uses a type C++ mode does not support yet — use Python for it.');
+      }
     } catch (err) {
       lc.setLoading(false, message(err));
     }
   }, []);
 
+  const switchLanguage = useCallback((lang: SolutionLanguage) => {
+    const lc = useLeetCode.getState();
+    if (lc.language === lang) return;
+    const app = useAppStore.getState();
+    if (lc.problem) saveJSON(codeKey(lc.problem.slug, lc.language), app.code);
+    lc.setLanguage(lang);
+    app.setLanguage(lang);
+    app.clearResult();
+    if (lc.problem) app.setCode(codeFor(lc.problem, lang));
+  }, []);
+
   const resetToStarter = useCallback(() => {
-    const problem = useLeetCode.getState().problem;
-    if (problem) useAppStore.getState().setCode(problem.starter_code);
+    const { problem, language } = useLeetCode.getState();
+    if (problem) useAppStore.getState().setCode(starter(problem, language));
   }, []);
 
   const runAll = useCallback(async () => {
@@ -72,6 +93,7 @@ export function useLeetCodeActions() {
         lc.problem.slug,
         lc.tests.map((t) => ({ input: t.input, expected: t.expected.trim() || null })),
         lc.compare,
+        lc.language,
       );
       const byId: Record<string, TestResult> = {};
       lc.tests.forEach((t, i) => {
@@ -94,5 +116,5 @@ export function useLeetCodeActions() {
     [analyze],
   );
 
-  return { loadCatalog, loadProblem, resetToStarter, runAll, visualize };
+  return { loadCatalog, loadProblem, switchLanguage, resetToStarter, runAll, visualize };
 }

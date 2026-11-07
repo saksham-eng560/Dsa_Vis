@@ -17,7 +17,7 @@ def _dump(value: Any) -> str:
     return json.dumps(value, separators=(",", ":"))
 
 
-def _verdict(output: Any, expected: str | None, mode: CompareMode) -> tuple[str, str | None]:
+def verdict(output: Any, expected: str | None, mode: CompareMode) -> tuple[str, str | None]:
     """(status, error) for a successfully returned value."""
     if expected is None or not expected.strip():
         return "ran", None
@@ -72,7 +72,7 @@ async def run_tests(
             status = "timeout" if got["error"].startswith("Time Limit") else "error"
             results.append(TestResult(status=status, error=got["error"], **base))
             continue
-        status, note = _verdict(got["output"], test.expected, mode)
+        status, note = verdict(got["output"], test.expected, mode)
         results.append(TestResult(status=status, output=_dump(got["output"]), error=note, **base))  # type: ignore[arg-type]
 
     fatal = raw.get("fatal")

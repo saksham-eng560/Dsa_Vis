@@ -6,7 +6,7 @@ import { activeTest, useLeetCode } from './leetcodeStore';
 const problem: LCProblem = {
   id: '1', slug: 'two-sum', title: 'Two Sum', difficulty: 'Easy', tags: [], description: '',
   function_name: 'twoSum', params: [{ name: 'nums', type: 'integer[]' }, { name: 'target', type: 'integer' }],
-  return_type: 'integer[]', output_param: null, design: false, class_name: null, starter_code: '',
+  return_type: 'integer[]', output_param: null, design: false, class_name: null, starter_code: '', starter_code_cpp: '',
   examples: [{ input: ['[2,7]', '9'], expected: '[0,1]' }, { input: ['[3,3]', '6'], expected: null }],
   compare: 'unordered', source: 'bundled', url: '',
 };

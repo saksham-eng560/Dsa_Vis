@@ -37,6 +37,9 @@ check_tools() {
   have node || die "Node 18+ required. Install it with:  brew install node"
   [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 18 ] || die "Node 18+ required (found $(node -v))."
   have ollama || die "Ollama not found. Install it from https://ollama.com/download"
+  if ! have clang++ && ! have g++; then
+    printf '\033[1;33m! No C++ compiler: C++ solutions in LeetCode mode need one. Install with: xcode-select --install\033[0m\n'
+  fi
   ok "python: $(${PY} --version)  node: $(node -v)  ollama: $(ollama --version 2>&1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)"
 }
 

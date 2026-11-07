@@ -13,6 +13,8 @@ from pathlib import Path
 import httpx
 
 from api.schemas.leetcode import LCExample, LCMethod, LCParam, LCProblem, LCSummary
+from core.lc_cpp import cpp_starter
+from core.lc_runtime import TestInputError
 
 _CATALOG_PATH = Path(__file__).parent.parent / "models" / "leetcode_catalog.json"
 _GRAPHQL = "https://leetcode.com/graphql"
@@ -21,6 +23,9 @@ _HEADERS = {"Referer": "https://leetcode.com", "Content-Type": "application/json
 _Q_DETAIL = """query q($slug: String!) { question(titleSlug: $slug) {
   questionFrontendId title titleSlug difficulty isPaidOnly content exampleTestcaseList metaData
   topicTags { name } codeSnippets { langSlug code } } }"""
+_Q_SEARCH_FULL = """query q($kw: String, $limit: Int) { problemsetQuestionList: questionList(categorySlug: "",
+  limit: $limit, skip: 0, filters: {searchKeywords: $kw}) { questions: data {
+  questionFrontendId title titleSlug difficulty paidOnly: isPaidOnly } } }"""
 _Q_SEARCH = """query q($kw: String) { problemsetQuestionList: questionList(categorySlug: "", limit: 50,
   skip: 0, filters: {searchKeywords: $kw}) { questions: data { questionFrontendId titleSlug } } }"""
 
@@ -37,6 +42,7 @@ def catalog() -> dict[str, LCProblem]:
     out: dict[str, LCProblem] = {}
     for p in problems:
         p = p.model_copy(update={"starter_code": p.starter_code or starter_code(p),
+                                 "starter_code_cpp": safe_cpp_starter(p),
                                  "url": f"https://leetcode.com/problems/{p.slug}/"})
         out[p.id] = out[p.slug] = p
     return out
@@ -46,6 +52,14 @@ def catalog_summaries() -> list[LCSummary]:
     seen = {p.slug: p for p in catalog().values()}
     return sorted((LCSummary(id=p.id, slug=p.slug, title=p.title, difficulty=p.difficulty)
                    for p in seen.values()), key=lambda s: int(s.id))
+
+
+def search_catalog(query: str, limit: int = 8) -> list[LCSummary]:
+    """Bundled problems whose number, title or slug matches `query`."""
+    q = query.strip().lower()
+    hits = [s for s in catalog_summaries()
+            if q and (s.id.startswith(q) or q in s.title.lower() or q in s.slug)]
+    return sorted(hits, key=lambda s: (s.id != q, not s.title.lower().startswith(q), int(s.id)))[:limit]
 
 
 def normalize_ref(ref: str) -> str:
@@ -161,8 +175,18 @@ def from_graphql(q: dict) -> LCProblem:
                  for m in meta.get("methods", [])],
         examples=examples, source="leetcode", url=f"https://leetcode.com/problems/{q['titleSlug']}/",
     )
-    snippet = next((s["code"] for s in q.get("codeSnippets") or [] if s["langSlug"] == "python3"), "")
-    return problem.model_copy(update={"starter_code": snippet or starter_code(problem)})
+    snippets = {s["langSlug"]: s["code"] for s in q.get("codeSnippets") or []}
+    return problem.model_copy(update={
+        "starter_code": snippets.get("python3") or starter_code(problem),
+        "starter_code_cpp": snippets.get("cpp") or safe_cpp_starter(problem),
+    })
+
+
+def safe_cpp_starter(p: LCProblem) -> str:
+    try:
+        return cpp_starter(p)
+    except TestInputError:
+        return ""
 
 
 class LeetCodeClient:
@@ -180,6 +204,13 @@ class LeetCodeClient:
         if res.status_code != 200:
             raise ProblemNotFoundError(f"leetcode.com returned HTTP {res.status_code}.")
         return res.json().get("data") or {}
+
+    async def search(self, query: str, limit: int = 8) -> list[LCSummary]:
+        """Live LeetCode search by number or keywords (premium problems excluded)."""
+        data = await self._gql(_Q_SEARCH_FULL, {"kw": query.strip(), "limit": limit})
+        questions = (data.get("problemsetQuestionList") or {}).get("questions") or []
+        return [LCSummary(id=str(q["questionFrontendId"]), slug=q["titleSlug"], title=q["title"],
+                          difficulty=q.get("difficulty", "")) for q in questions if not q.get("paidOnly")]
 
     async def _slug_for_id(self, frontend_id: str) -> str:
         data = await self._gql(_Q_SEARCH, {"kw": frontend_id})

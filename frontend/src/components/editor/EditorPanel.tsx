@@ -29,7 +29,8 @@ export function EditorPanel() {
   const deferredCode = useDeferredValue(code); // debounce detection while typing
   const detected = useMemo(() => detectLanguage(deferredCode), [deferredCode]);
   const lcMode = useLeetCode((s) => s.mode === 'leetcode');
-  const effective = lcMode ? 'python' : language === 'auto' ? detected : language;
+  const lcLanguage = useLeetCode((s) => s.language);
+  const effective = lcMode ? lcLanguage : language === 'auto' ? detected : language;
   usePersistProblemCode();
   const [dragging, setDragging] = useState(false);
 

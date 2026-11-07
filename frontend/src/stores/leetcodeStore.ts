@@ -4,17 +4,19 @@
  */
 import { create } from 'zustand';
 
-import type { CompareMode, LCProblem, LCSummary, TestCase, TestResult } from '../types/leetcode';
+import type { CompareMode, LCProblem, LCSummary, SolutionLanguage, TestCase, TestResult } from '../types/leetcode';
 import { loadJSON, saveJSON } from '../utils/storage';
 
 export type Mode = 'free' | 'leetcode';
 
 const MODE_KEY = 'codelens.mode';
+const LANG_KEY = 'codelens.lc.language';
 const customKey = (slug: string) => `codelens.lc.tests.${slug}`;
 const newId = () => crypto.randomUUID();
 
 interface LeetCodeState {
   mode: Mode;
+  language: SolutionLanguage;
   catalog: LCSummary[];
   problem: LCProblem | null;
   loading: boolean;
@@ -27,6 +29,7 @@ interface LeetCodeState {
   compare: CompareMode | null; // null → problem default
 
   setMode: (mode: Mode) => void;
+  setLanguage: (language: SolutionLanguage) => void;
   setCatalog: (catalog: LCSummary[]) => void;
   setLoading: (loading: boolean, error?: string | null) => void;
   setProblem: (problem: LCProblem) => void;
@@ -46,6 +49,7 @@ function persist(problem: LCProblem | null, tests: TestCase[]) {
 
 export const useLeetCode = create<LeetCodeState>((set, get) => ({
   mode: loadJSON<Mode>(MODE_KEY, 'free'),
+  language: loadJSON<SolutionLanguage>(LANG_KEY, 'python'),
   catalog: [],
   problem: null,
   loading: false,
@@ -60,6 +64,10 @@ export const useLeetCode = create<LeetCodeState>((set, get) => ({
   setMode: (mode) => {
     saveJSON(MODE_KEY, mode);
     set({ mode });
+  },
+  setLanguage: (language) => {
+    saveJSON(LANG_KEY, language);
+    set({ language, results: {}, runError: null });
   },
   setCatalog: (catalog) => set({ catalog }),
   setLoading: (loading, error = null) => set({ loading, error }),

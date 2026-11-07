@@ -35,7 +35,7 @@ export function useAnalysis() {
     try {
       const stream = analyzeStream(
         lcMode
-          ? { code, language: 'python', problem: lc.problem?.slug, test_input: activeTest(lc)?.input }
+          ? { code, language: lc.language, problem: lc.problem?.slug, test_input: activeTest(lc)?.input }
           : { code, language, entry_call: entryCall.trim() || null },
         ctrl.signal,
       );

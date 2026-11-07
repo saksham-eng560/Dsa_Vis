@@ -45,7 +45,7 @@ const PRESETS = ['bubble', 'binary-search', 'bfs', 'reverse-list', 'bst', 'stack
 
   // LeetCode mode: load a problem, add a custom test, judge, then visualise a test case.
   await page.click('[role="radio"]:has-text("LeetCode")');
-  await page.fill('input[placeholder^="Problem #"]', '1');
+  await page.fill('input[role="combobox"]', '1');
   await page.click('button:has-text("Load")');
   await page.waitForSelector('h3:has-text("1. Two Sum")');
   const solution = 'class Solution:\n    def twoSum(self, nums, target):\n        seen = {}\n' +

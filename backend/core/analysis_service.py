@@ -45,9 +45,23 @@ class AnalysisService:
     async def static(self, req: CodeRequest) -> AnalysisResult:
         """Deterministic analysis only (used by the focused endpoints)."""
         self._check(req)
+        if isinstance(req, AnalyzeRequest) and req.problem and req.language not in ("auto", "python"):
+            return await self._static_native_problem(req)
         context = await self._problem_context(req) if isinstance(req, AnalyzeRequest) else None
         result = await run_static(req.code, req.language, req.entry_call, self.settings, context)
         return enrich_offline(result)
+
+    async def _static_native_problem(self, req: AnalyzeRequest) -> AnalysisResult:
+        """LeetCode mode in C++: static analysis now, AI dry run on the chosen test input."""
+        problem = await self.leetcode.get(req.problem or "")
+        lines = req.test_input or (problem.examples[0].input if problem.examples else [])
+        names = ["operations", "arguments"] if problem.design else [p.name for p in problem.params]
+        label = ", ".join(f"{n} = {v.strip()}" for n, v in zip(names, lines, strict=False))
+        result = await run_static(req.code, req.language, None, self.settings)
+        return result.model_copy(update={
+            "algorithm_name": f"{problem.id}. {problem.title}",
+            "dry_run": result.dry_run.model_copy(update={"input_example": label}),
+        })
 
     async def _problem_context(self, req: AnalyzeRequest) -> ProblemContext | None:
         """Resolve LeetCode mode: which problem and which test case drives the dry run."""
@@ -143,6 +157,8 @@ def _hints(static: AnalysisResult) -> str:
     if static.dry_run.steps:
         lines.append(f"- Executed {len(static.dry_run.steps)} traced steps; output: "
                      f"{static.dry_run.steps[-1].output_so_far[-200:]!r}")
+    if static.dry_run.source != "trace" and static.dry_run.input_example:
+        lines.append(f"- For dry_run, trace exactly this input: {static.dry_run.input_example}")
     if static.dry_run.error:
         lines.append(f"- Runtime error when executed: {static.dry_run.error}")
     return "\n".join(lines)

@@ -2,6 +2,7 @@
 
 export type CompareMode = 'exact' | 'unordered' | 'unordered_nested';
 export type TestStatus = 'passed' | 'failed' | 'error' | 'timeout' | 'ran';
+export type SolutionLanguage = 'python' | 'cpp';
 
 export interface LCParam {
   name: string;
@@ -25,6 +26,7 @@ export interface LCProblem extends LCSummary {
   design: boolean;
   class_name: string | null;
   starter_code: string;
+  starter_code_cpp: string;
   examples: { input: string[]; expected: string | null }[];
   compare: CompareMode;
   source: 'bundled' | 'leetcode';
