@@ -1,0 +1,138 @@
+"""Turn real Python execution into a `DryRun`: run the harness in the sandbox,
+then post-process raw line events into described steps with data-structure
+snapshots and highlights.
+"""
+
+import json
+import re
+from pathlib import Path
+
+from api.schemas.response import DataStructureState, DryRun, DryRunStep
+from core.ds_highlights import highlights
+from core.ds_inference import classify, score, to_state
+from core.value_model import Value, fmt
+from sandbox.executor import run_python
+
+_HARNESS = (Path(__file__).parent.parent / "sandbox" / "harness.py").read_text()
+_HEAPQ_RX = re.compile(r"heapq\.\w+\(\s*(\w+)")
+
+
+async def trace_python(
+    code: str, entry_call: str | None, *, max_steps: int, timeout_s: float, memory_mb: int
+) -> DryRun:
+    """Execute `code` (+ optional `entry_call`) in the sandbox and build a DryRun."""
+    payload = json.dumps({"code": code, "entry_call": entry_call, "max_steps": max_steps})
+    result = await run_python(_HARNESS, payload, timeout_s, memory_mb)
+    if result.timed_out:
+        return DryRun(source="trace", error="Execution timed out (possible infinite loop).")
+    try:
+        doc = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        tail = result.stderr.strip().splitlines()[-1:] or ["sandbox crashed"]
+        return DryRun(source="trace", error=f"Sandbox error: {tail[0]}")
+    steps = build_steps(doc["steps"], doc["stdout"], code, frozenset(_HEAPQ_RX.findall(code)))
+    error = doc.get("error")
+    if doc.get("result") is not None and steps:
+        steps[-1].output_so_far += f"\n→ {entry_call} = {doc['result']}"
+    return DryRun(
+        input_example=entry_call or "",
+        steps=steps,
+        source="trace",
+        truncated=bool(doc.get("truncated")),
+        error=error,
+    )
+
+
+def _scope(raw: dict) -> dict[str, Value]:
+    """Visible variables at a step: globals overlaid by the frame's locals."""
+    return {**raw["globals"], **raw["locals"]}
+
+
+def _pick_focus(raw_steps: list[dict], heap_names: frozenset[str]) -> tuple[str, str] | None:
+    """Choose the (variable, kind) that best represents the algorithm's state."""
+    best: dict[tuple[str, str], int] = {}
+    for raw in raw_steps:
+        for name, value in _scope(raw).items():
+            kind = classify(name, value, heap_names)
+            if kind:
+                key = (name, kind)
+                best[key] = max(best.get(key, 0), score(kind, name, value)) + 1
+    return max(best, key=lambda k: best[k]) if best else None
+
+
+def _focus_value(focus: tuple[str, str], raw: dict, heap_names: frozenset[str]) -> Value | None:
+    """Value of the focus variable at this step.
+
+    Linked structures prefer the *global* binding: inside recursive helpers the
+    local `root`/`head` is just a sub-structure, while the global one is whole.
+    """
+    name, kind = focus
+    order = ("globals", "locals") if kind in ("tree", "linked_list") else ("locals", "globals")
+    for space in order:
+        value = raw[space].get(name)
+        if value is not None and classify(name, value, heap_names) == kind:
+            return value
+    return None
+
+
+def build_steps(
+    raw_steps: list[dict], stdout: str, code: str, heap_names: frozenset[str] = frozenset()
+) -> list[DryRunStep]:
+    """Convert harness events into API steps (pure function — unit tested)."""
+    lines = code.splitlines()
+    focus = _pick_focus(raw_steps, heap_names)
+    steps: list[DryRunStep] = []
+    prev_vars: dict[str, str] = {}
+    prev_frame: tuple[str, int] | None = None
+    prev_focus_value: Value | None = None
+    last_state: DataStructureState | None = None
+
+    for idx, raw in enumerate(raw_steps):
+        scope = _scope(raw)
+        variables = {k: fmt(v) for k, v in scope.items()}
+        frame = (raw["func"], raw["depth"])
+        changed = (
+            [k for k, v in variables.items() if prev_vars.get(k) != v] if frame == prev_frame else []
+        )
+        ds_state = last_state.model_copy(update={"highlights": []}) if last_state else None
+        value = _focus_value(focus, raw, heap_names) if focus else None
+        if focus and value is not None:
+            ds_state = DataStructureState(
+                type=focus[1],  # type: ignore[arg-type]
+                name=focus[0],
+                state=to_state(focus[1], value),
+                highlights=highlights(focus[1], value, prev_focus_value, raw["locals"] or scope),
+            )
+            prev_focus_value, last_state = value, ds_state
+
+        steps.append(
+            DryRunStep(
+                step=idx + 1,
+                line=raw["line"],
+                event=raw["event"],
+                function=raw["func"],
+                depth=max(raw["depth"], 0),
+                description=_describe(raw, lines, variables),
+                variables=variables,
+                changed=changed,
+                data_structure_state=ds_state,
+                output_so_far=stdout[: raw["out"]],
+            )
+        )
+        prev_vars, prev_frame = variables, frame
+    return steps
+
+
+def _describe(raw: dict, lines: list[str], variables: dict[str, str]) -> str:
+    """Human-readable sentence for one step."""
+    event, func = raw["event"], raw["func"]
+    if event == "call":
+        args = ", ".join(f"{k}={v}" for k, v in variables.items() if k in raw["locals"])
+        return f"Call {func}({args})"
+    if event == "return":
+        return f"{func} returns {fmt(raw.get('ret'))}"
+    if event == "exception":
+        return f"Exception raised: {raw.get('exc', '')}"
+    line_no = raw["line"]
+    source = lines[line_no - 1].strip() if 0 < line_no <= len(lines) else ""
+    return f"Line {line_no}: {source}"
