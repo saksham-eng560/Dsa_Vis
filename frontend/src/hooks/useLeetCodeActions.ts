@@ -14,7 +14,13 @@ import { useAnalysis } from './useAnalysis';
 
 const codeKey = (slug: string, lang: SolutionLanguage) => `codelens.lc.code.${slug}${lang === 'cpp' ? '.cpp' : ''}`;
 const message = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong.');
-const starter = (p: LCProblem, lang: SolutionLanguage) => (lang === 'cpp' ? p.starter_code_cpp : p.starter_code);
+const CPP_FALLBACK = (p: LCProblem) =>
+  p.design
+    ? `class ${p.class_name ?? 'Solution'} {\npublic:\n    // write your solution here\n};\n`
+    : `class Solution {\npublic:\n    // write ${p.function_name ?? 'your method'}(...) here\n};\n`;
+/** Starter code for a language; C++ always gets at least an editable skeleton. */
+const starter = (p: LCProblem, lang: SolutionLanguage) =>
+  lang === 'cpp' ? p.starter_code_cpp || CPP_FALLBACK(p) : p.starter_code;
 
 /** Save the editor contents for the current problem + language (debounced). */
 export function usePersistProblemCode(): void {
@@ -58,7 +64,7 @@ export function useLeetCodeActions() {
       app.clearResult();
       app.setTab('problem');
       if (lc.language === 'cpp' && !problem.starter_code_cpp) {
-        toast('info', 'This problem uses a type C++ mode does not support yet — use Python for it.');
+        toast('info', 'No C++ template for this problem — a blank class was added. Running tests may need Python if it uses an unusual type.');
       }
     } catch (err) {
       lc.setLoading(false, message(err));

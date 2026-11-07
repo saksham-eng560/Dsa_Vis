@@ -230,8 +230,16 @@ class LeetCodeClient:
         slug = ids.get(key) or (await self._slug_for_id(key) if key.isdigit() else key)
         cached = self.cache_dir / f"{slug}.json"
         if cached.exists():
-            return LCProblem.model_validate_json(cached.read_text())
-        data = await self._gql(_Q_DETAIL, {"slug": slug})
+            problem = LCProblem.model_validate_json(cached.read_text())
+            if problem.starter_code_cpp:
+                return problem
+            # cached by an older version (no C++ starter): refresh, or derive one offline
+            try:
+                data = await self._gql(_Q_DETAIL, {"slug": slug})
+            except ProblemNotFoundError:
+                return problem.model_copy(update={"starter_code_cpp": safe_cpp_starter(problem)})
+        else:
+            data = await self._gql(_Q_DETAIL, {"slug": slug})
         if not data.get("question"):
             raise ProblemNotFoundError(f"No LeetCode problem called “{ref}”.")
         problem = from_graphql(data["question"])

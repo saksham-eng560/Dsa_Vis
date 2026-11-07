@@ -30,6 +30,7 @@ export function EditorPanel() {
   const detected = useMemo(() => detectLanguage(deferredCode), [deferredCode]);
   const lcMode = useLeetCode((s) => s.mode === 'leetcode');
   const lcLanguage = useLeetCode((s) => s.language);
+  const hasProblem = useLeetCode((s) => s.problem !== null);
   const effective = lcMode ? lcLanguage : language === 'auto' ? detected : language;
   usePersistProblemCode();
   const [dragging, setDragging] = useState(false);
@@ -90,9 +91,9 @@ export function EditorPanel() {
         {!code && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-sm" style={{ color: 'var(--text-faint)' }}>
             <p className="text-base font-medium" style={{ color: 'var(--text-muted)' }}>
-              {lcMode ? 'Load a LeetCode problem above' : 'Paste any code to visualise it'}
+              {!lcMode ? 'Paste any code to visualise it' : hasProblem ? 'Write your solution here' : 'Load a LeetCode problem above'}
             </p>
-            <p>{lcMode ? 'Its starter code appears here — write your Solution, then run the tests.' : '…or pick an example, or drop a file here.'}</p>
+            <p>{!lcMode ? '…or pick an example, or drop a file here.' : hasProblem ? 'Click here and start typing, or use “Starter code”.' : 'Its starter code appears here — write your Solution, then run the tests.'}</p>
           </div>
         )}
         {dragging && (

@@ -97,3 +97,24 @@ def test_catalog_search() -> None:
     assert search_catalog("2")[0].id == "20"  # number prefix
     assert [s.slug for s in search_catalog("tree")][:1] == ["binary-tree-inorder-traversal"]
     assert search_catalog("zzz") == []
+
+
+async def test_stale_cache_without_cpp_starter_is_refreshed(tmp_path: Path) -> None:
+    from core.lc_problem import from_graphql
+
+    stale = from_graphql(QUESTION).model_copy(update={"starter_code_cpp": ""})
+    (tmp_path / "top-k-thing.json").write_text(stale.model_dump_json())
+    snippets = [{"langSlug": "python3", "code": "class Solution: pass"},
+                {"langSlug": "cpp", "code": "class Solution {\npublic:\n};"}]
+    fresh = {**QUESTION, "codeSnippets": snippets}
+    client, calls = _client(tmp_path, lambda b: httpx.Response(200, json={"data": {"question": fresh}}))
+    p = await client.get("top-k-thing")
+    assert p.starter_code_cpp.startswith("class Solution {") and len(calls) == 1
+    assert (await client.get("top-k-thing")).starter_code_cpp and len(calls) == 1  # re-cached
+
+    def down(_: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("offline")
+
+    (tmp_path / "top-k-thing.json").write_text(stale.model_dump_json())
+    offline = LeetCodeClient(httpx.AsyncClient(transport=httpx.MockTransport(down)), tmp_path)
+    assert "vector<int> topK(vector<int>& nums, int k)" in (await offline.get("top-k-thing")).starter_code_cpp

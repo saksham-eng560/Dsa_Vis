@@ -13,7 +13,7 @@ from core.lc_runtime import TestInputError, parse_value
 RESULT_MARKER = "@@CODELENS_RESULT@@"
 
 _SCALARS = {
-    "integer": "int", "long": "long long", "double": "double", "boolean": "bool",
+    "integer": "int", "long": "long long", "double": "double", "float": "double", "boolean": "bool",
     "string": "string", "character": "char", "void": "void",
     "ListNode": "ListNode*", "TreeNode": "TreeNode*",
 }
