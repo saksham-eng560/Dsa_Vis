@@ -19,7 +19,8 @@ const PRESETS = ['bubble', 'binary-search', 'bfs', 'reverse-list', 'bst', 'stack
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 
   await page.goto(BASE_URL, { waitUntil: 'networkidle' });
-  check(await page.isVisible('text=See how your code thinks.'), 'welcome screen renders');
+  check(await page.isVisible('h1:has-text("See your code")'), 'hero renders');
+  check(await page.isVisible('text=Write code.'), 'workspace welcome renders');
 
   for (const id of PRESETS) {
     await page.selectOption('select[aria-label="Load an example"]', id);
