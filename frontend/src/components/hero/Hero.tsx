@@ -38,9 +38,11 @@ export function Hero() {
         </motion.p>
         <h1 className="display mt-3 text-5xl md:text-7xl lg:text-[5.5rem]">
           {['See', 'your', 'code'].map((w, i) => (
-            <motion.span key={w} className="mr-[0.22em] inline-block" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.1 + i * 0.08 }}>
-              {w}
-            </motion.span>
+            <span key={w}>
+              <motion.span className="inline-block" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.1 + i * 0.08 }}>
+                {w}
+              </motion.span>{' '}
+            </span>
           ))}
           <motion.span className="text-spectrum inline-block" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.38 }}>
             think.
