@@ -30,7 +30,7 @@ export function TabsPanel<T extends string>({ tabs, active, onChange, idPrefix }
   };
 
   return (
-    <div role="tablist" aria-label="Analysis views" className="glass-inset flex gap-1 overflow-x-auto p-1 scroll-thin">
+    <div role="tablist" aria-label="Analysis views" className="flex gap-0.5 overflow-x-auto rounded-[12px] p-[3px] scroll-thin" style={{ background: 'var(--surface-3)' }}>
       {tabs.map((tab, i) => {
         const selected = tab.id === active;
         return (
@@ -46,14 +46,14 @@ export function TabsPanel<T extends string>({ tabs, active, onChange, idPrefix }
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(e) => onKey(e, i)}
-            className="focus-ring relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-[0.65rem] px-3 py-2 text-sm font-medium transition-colors"
+            className="focus-ring relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-[9px] px-3 py-1.5 text-[13px] font-medium transition-colors"
             style={{ color: selected ? 'var(--text)' : 'var(--text-muted)' }}
           >
             {selected && (
               <motion.span
                 layoutId={`${idPrefix}-indicator`}
-                className="absolute inset-0 rounded-[0.65rem]"
-                style={{ background: 'var(--glass-bg-active)', border: '1px solid var(--glass-border-hover)' }}
+                className="absolute inset-0 rounded-[9px]"
+                style={{ background: 'var(--surface-solid)', boxShadow: '0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)' }}
                 transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               />
             )}

@@ -1,9 +1,11 @@
-/** Small footer with keyboard hints. */
+/** Quiet footer with keyboard shortcuts. */
 export function Footer() {
   return (
-    <footer className="relative z-10 px-5 pb-4 pt-1 text-center text-[0.7rem]" style={{ color: 'var(--text-faint)' }}>
-      <kbd className="chip !py-0 font-mono">Ctrl/⌘ + Enter</kbd> analyse · <kbd className="chip !py-0 font-mono">← →</kbd> step ·{' '}
-      <kbd className="chip !py-0 font-mono">Space</kbd> play · Code runs in a sandbox and is never stored on the server.
+    <footer className="mx-auto max-w-[1600px] border-t px-5 py-6 text-xs" style={{ color: 'var(--text-faint)', borderColor: 'var(--separator)' }}>
+      <p>
+        Shortcuts: <kbd className="font-mono">⌘/Ctrl + Enter</kbd> analyse · <kbd className="font-mono">← →</kbd> step ·{' '}
+        <kbd className="font-mono">Space</kbd> play · drag the divider to resize the editor. Code runs in a local sandbox and never leaves your machine.
+      </p>
     </footer>
   );
 }

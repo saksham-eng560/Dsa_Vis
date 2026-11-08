@@ -67,7 +67,7 @@ export function EditorPanel() {
   };
 
   return (
-    <GlassCard className="flex min-h-[420px] flex-1 flex-col gap-3 p-4" aria-label="Code input">
+    <GlassCard className="flex min-h-[460px] flex-1 flex-col gap-3 p-4 lg:min-h-0" aria-label="Code input">
       <ModeToggle />
       {lcMode && <ProblemPicker />}
       <EditorToolbar

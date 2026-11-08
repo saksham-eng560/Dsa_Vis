@@ -40,7 +40,7 @@ export function ResultsPanel() {
   const activeTab = !problem && tab === 'problem' ? 'flowchart' : tab;
   const showTabs = result !== null || problem !== null;
   return (
-    <GlassCard glow className="flex min-h-[560px] min-w-0 flex-col gap-3 p-4" aria-label="Analysis results">
+    <GlassCard className="flex min-h-[560px] min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-5 scroll-thin lg:min-h-0" aria-label="Analysis results">
       {error && status === 'error' && (
         <div role="alert" className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: 'var(--accent-danger)', color: 'var(--accent-danger)', background: 'color-mix(in srgb, var(--accent-danger) 10%, transparent)' }}>
           <AlertTriangle size={16} aria-hidden /> {error}
@@ -52,7 +52,7 @@ export function ResultsPanel() {
         <>
           {result && (
           <header className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">{result.algorithm_name}</h2>
+            <h2 className="display text-2xl">{result.algorithm_name}</h2>
             <span className="chip">{LANGUAGE_LABELS[result.language]}</span>
             <ComplexityBadge notation={result.complexity.time.worst} />
             {result.data_structures_used.slice(0, 4).map((d) => (

@@ -18,23 +18,48 @@ self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
 const shared = { 'editor.background': '#00000000', 'editorGutter.background': '#00000000' };
 
+// Xcode-inspired palettes (default dark / light).
 monaco.editor.defineTheme('codelens-dark', {
   base: 'vs-dark',
   inherit: true,
   rules: [
-    { token: 'keyword', foreground: 'c4b5fd' },
-    { token: 'string', foreground: '6ee7b7' },
-    { token: 'number', foreground: 'fbbf24' },
-    { token: 'comment', foreground: '6b7299', fontStyle: 'italic' },
+    { token: 'keyword', foreground: 'ff7ab2', fontStyle: 'bold' },
+    { token: 'string', foreground: 'ff8170' },
+    { token: 'number', foreground: 'd9c97c' },
+    { token: 'comment', foreground: '7f8c98', fontStyle: 'italic' },
+    { token: 'type', foreground: 'dabaff' },
+    { token: 'identifier', foreground: 'ffffff' },
+    { token: 'delimiter', foreground: 'a1a1a6' },
   ],
-  colors: { ...shared, 'editorLineNumber.foreground': '#4b5180', 'editor.lineHighlightBackground': '#ffffff08' },
+  colors: {
+    ...shared,
+    'editor.foreground': '#f5f5f7',
+    'editorLineNumber.foreground': '#4e4e53',
+    'editorLineNumber.activeForeground': '#a1a1a6',
+    'editor.lineHighlightBackground': '#ffffff07',
+    'editor.selectionBackground': '#0a84ff40',
+    'editorCursor.foreground': '#0a84ff',
+    'editorIndentGuide.background1': '#ffffff10',
+  },
 });
 
 monaco.editor.defineTheme('codelens-light', {
   base: 'vs',
   inherit: true,
-  rules: [{ token: 'keyword', foreground: '6d28d9' }, { token: 'comment', foreground: '8a8fb5', fontStyle: 'italic' }],
-  colors: { ...shared, 'editorLineNumber.foreground': '#a5a9cf', 'editor.lineHighlightBackground': '#6366f10a' },
+  rules: [
+    { token: 'keyword', foreground: 'ad3da4', fontStyle: 'bold' },
+    { token: 'string', foreground: 'd12f1b' },
+    { token: 'number', foreground: '272ad8' },
+    { token: 'comment', foreground: '707f8c', fontStyle: 'italic' },
+    { token: 'type', foreground: '703daa' },
+  ],
+  colors: {
+    ...shared,
+    'editorLineNumber.foreground': '#b4b4b9',
+    'editor.lineHighlightBackground': '#0071e308',
+    'editor.selectionBackground': '#0071e330',
+    'editorCursor.foreground': '#0071e3',
+  },
 });
 
 export { monaco };

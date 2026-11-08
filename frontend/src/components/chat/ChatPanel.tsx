@@ -26,7 +26,7 @@ export function ChatPanel() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
             onClick={() => setOpen(true)}
-            className="btn btn-glow focus-ring fixed bottom-5 left-5 z-40 !h-12 !rounded-full !px-5 shadow-2xl"
+            className="btn btn-glow focus-ring fixed bottom-6 right-6 z-40 !h-12 !px-5 shadow-2xl"
             aria-label="Ask CodeLens a question"
           >
             <MessageCircleQuestion size={18} /> Ask CodeLens

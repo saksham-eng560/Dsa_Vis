@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 
 import type { AnalysisResult, HistoryItem, LanguageChoice, TabId } from '../types';
+import { cancelAnalysis } from '../services/analysisControl';
 import { loadJSON, saveJSON } from '../utils/storage';
 
 export type Status = 'idle' | 'analyzing' | 'done' | 'error';
@@ -100,7 +101,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       step: s.result && s.result.dry_run.steps.length === result.dry_run.steps.length ? s.step : 0,
     })),
   fail: (error) => set({ status: 'error', error, playing: false }),
-  clearResult: () => set({ result: null, status: 'idle', error: null, step: 0, playing: false }),
+  clearResult: () => {
+    cancelAnalysis(); // a late stream must not resurrect the old result
+    set({ result: null, status: 'idle', error: null, step: 0, playing: false });
+  },
   addHistory: (item) =>
     set(({ history }) => {
       const next = [item, ...history.filter((h) => h.code !== item.code)].slice(0, MAX_HISTORY);

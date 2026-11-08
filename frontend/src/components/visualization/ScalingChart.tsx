@@ -13,7 +13,7 @@ const N_MAX = 20;
 const Y_MAX = 120;
 
 const TONE_STROKE: Record<string, string> = {
-  green: '#34d399', blue: '#60a5fa', yellow: '#fbbf24', orange: '#fb923c', red: '#f87171', neutral: '#a5b4fc',
+  green: '#30d158', blue: '#64d2ff', yellow: '#ffd60a', orange: '#ff9f0a', red: '#ff453a', neutral: '#a1a1a6',
 };
 
 export function ScalingChart({ notation }: { notation: string }) {
@@ -57,7 +57,7 @@ export function ScalingChart({ notation }: { notation: string }) {
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
               transition={{ duration: emphasised ? 1.1 : 0.6 }}
-              style={emphasised ? { filter: `drop-shadow(0 0 6px ${TONE_STROKE[c.tone]})` } : undefined}
+              
             />
             <text x={x(c.labelAt[0]) + 4} y={y(c.labelAt[1])} fontSize={emphasised ? 11 : 9} fontWeight={emphasised ? 700 : 400} fill={TONE_STROKE[c.tone]} dominantBaseline="middle">
               {c.name}

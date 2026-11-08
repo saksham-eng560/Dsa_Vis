@@ -1,29 +1,59 @@
-/** Root layout: ambient background, navbar, split editor / results panes. */
+/** Page: frosted nav → hero (live demo) → resizable workspace (editor | results). */
+import { useEffect } from 'react';
+
 import { ChatPanel } from './components/chat/ChatPanel';
+import { EditorPanel } from './components/editor/EditorPanel';
+import { Hero } from './components/hero/Hero';
 import { Footer } from './components/layout/Footer';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
-import { EditorPanel } from './components/editor/EditorPanel';
+import { SplitPane } from './components/layout/SplitPane';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ToastViewport } from './components/ui/Toast';
 import { ResultsPanel } from './components/visualization/ResultsPanel';
-import { ErrorBoundary } from './components/shared/ErrorBoundary';
+import { useAppStore } from './stores/appStore';
+import { loadJSON, saveJSON } from './utils/storage';
+
+const SEEN_KEY = 'codelens.seenHero';
+
+/** Returning users land on the workspace; the hero stays one scroll up. */
+function useLandOnWorkspace() {
+  useEffect(() => {
+    if (loadJSON<boolean>(SEEN_KEY, false) || window.location.hash.startsWith('#code=')) {
+      requestAnimationFrame(() => document.getElementById('workspace')?.scrollIntoView({ block: 'start' }));
+    }
+    const unsub = useAppStore.subscribe((s, prev) => {
+      if (s.status === 'analyzing' && prev.status !== 'analyzing') {
+        saveJSON(SEEN_KEY, true);
+        const ws = document.getElementById('workspace');
+        if (ws && ws.getBoundingClientRect().top > 80) ws.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+    return unsub;
+  }, []);
+}
 
 export default function App() {
+  useLandOnWorkspace();
   return (
-    <div className="relative flex min-h-full flex-col">
-      <div className="orb orb-1" aria-hidden />
-      <div className="orb orb-2" aria-hidden />
-      <div className="orb orb-3" aria-hidden />
+    <div className="min-h-full">
       <Navbar />
-      <main className="relative z-10 grid flex-1 grid-cols-1 gap-4 p-3 md:p-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div className="flex min-h-0 flex-col lg:sticky lg:top-5 lg:h-[calc(100vh-7.5rem)]">
-          <ErrorBoundary label="editor">
-            <EditorPanel />
-          </ErrorBoundary>
-        </div>
-        <ErrorBoundary label="visualisation">
-          <ResultsPanel />
-        </ErrorBoundary>
+      <Hero />
+      <main id="workspace" className="mx-auto max-w-[1600px] scroll-mt-[52px] px-3 pb-6 pt-4 md:px-5">
+        <SplitPane
+          storageKey="codelens.split"
+          className="lg:h-[calc(100vh-52px-2rem)]"
+          left={
+            <ErrorBoundary label="editor">
+              <EditorPanel />
+            </ErrorBoundary>
+          }
+          right={
+            <ErrorBoundary label="visualisation">
+              <ResultsPanel />
+            </ErrorBoundary>
+          }
+        />
       </main>
       <Footer />
       <Sidebar />

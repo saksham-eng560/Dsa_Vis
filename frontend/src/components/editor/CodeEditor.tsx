@@ -34,7 +34,7 @@ export default function CodeEditor({ language }: CodeEditorProps) {
       language: monacoLanguage(language),
       theme: useAppStore.getState().theme === 'dark' ? 'codelens-dark' : 'codelens-light',
       automaticLayout: true,
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      fontFamily: "'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace",
       fontSize: 13.5,
       lineHeight: 22,
       minimap: { enabled: false },

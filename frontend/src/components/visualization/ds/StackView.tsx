@@ -8,7 +8,7 @@ export function StackView({ values, highlights }: { values: Scalar[]; highlights
   return (
     <div className="flex flex-col items-center py-4">
       <span className="mb-2 text-xs" style={{ color: 'var(--text-faint)' }}>top</span>
-      <div className="flex w-40 flex-col-reverse gap-1.5 rounded-b-2xl border-x-2 border-b-2 p-2" style={{ borderColor: 'var(--glass-border-hover)', minHeight: '3.5rem' }}>
+      <div className="flex w-40 flex-col-reverse gap-1.5 rounded-b-2xl border-x-2 border-b-2 p-2" style={{ borderColor: 'var(--separator-strong)', minHeight: '3.5rem' }}>
         <AnimatePresence initial={false}>
           {values.map((value, i) => {
             const color = cellColor(matching(highlights, i));
@@ -21,10 +21,10 @@ export function StackView({ values, highlights }: { values: Scalar[]; highlights
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -24, scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-                className="flex h-10 items-center justify-center rounded-lg border font-mono text-sm font-semibold"
+                className="flex h-10 items-center justify-center rounded-[10px] text-sm font-semibold tabular-nums"
                 style={{
-                  borderColor: color ?? (isTop ? 'var(--accent-primary)' : 'var(--glass-border-hover)'),
-                  background: isTop ? 'color-mix(in srgb, var(--accent-primary) 16%, transparent)' : 'var(--glass-bg-hover)',
+                  background: color ?? (isTop ? 'var(--accent-primary)' : 'var(--surface-3)'),
+                  color: color || isTop ? '#ffffff' : 'var(--text)',
                 }}
               >
                 {show(value)}

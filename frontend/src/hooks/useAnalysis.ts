@@ -3,16 +3,15 @@
  * swaps in the LLM-enriched result when it arrives. Aborts in-flight requests
  * when a new analysis starts.
  */
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
+import { beginAnalysis, cancelAnalysis } from '../services/analysisControl';
 import { analyzeStream, ApiError } from '../services/api';
 import { useAppStore } from '../stores/appStore';
 import { activeTest, useLeetCode } from '../stores/leetcodeStore';
 import type { AnalysisResult } from '../types';
 
 export function useAnalysis() {
-  const controller = useRef<AbortController | null>(null);
-
   const analyze = useCallback(async () => {
     const { code, language, entryCall, startAnalysis, setProgress, setResult, fail, addHistory } =
       useAppStore.getState();
@@ -26,9 +25,7 @@ export function useAnalysis() {
       fail('Load a LeetCode problem first (enter its number or name above the editor).');
       return;
     }
-    controller.current?.abort();
-    const ctrl = new AbortController();
-    controller.current = ctrl;
+    const signal = beginAnalysis(); // aborts any analysis still streaming
     startAnalysis();
     if (lcMode && useAppStore.getState().activeTab === 'problem') useAppStore.getState().setTab('dryrun');
 
@@ -38,7 +35,7 @@ export function useAnalysis() {
         lcMode
           ? { code, language: lc.language, problem: lc.problem?.slug, test_input: activeTest(lc)?.input }
           : { code, language, entry_call: entryCall.trim() || null },
-        ctrl.signal,
+        signal,
       );
       for await (const ev of stream) {
         if (ev.event === 'stage') setProgress(ev.data.message);
@@ -65,7 +62,7 @@ export function useAnalysis() {
     }
   }, []);
 
-  const cancel = useCallback(() => controller.current?.abort(), []);
+  const cancel = useCallback(() => cancelAnalysis(), []);
   return { analyze, cancel };
 }
 

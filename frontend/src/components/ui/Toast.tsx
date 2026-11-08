@@ -38,17 +38,17 @@ const ICONS = {
 export function ToastViewport() {
   const { toasts, dismiss } = useToasts();
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-50 flex flex-col gap-2" aria-live="polite">
+    <div className="pointer-events-none fixed left-1/2 top-16 z-50 flex -translate-x-1/2 flex-col items-center gap-2" aria-live="polite">
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.button
             key={t.id}
             layout
-            initial={{ opacity: 0, x: 40, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 40, scale: 0.95 }}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
             onClick={() => dismiss(t.id)}
-            className="glass-strong pointer-events-auto flex max-w-sm items-center gap-2 rounded-xl px-4 py-3 text-left text-sm shadow-lg"
+            className="glass-strong pointer-events-auto flex max-w-sm items-center gap-2 rounded-full px-5 py-2.5 text-left text-sm shadow-2xl"
           >
             {ICONS[t.kind]}
             <span>{t.message}</span>

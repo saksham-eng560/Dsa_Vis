@@ -1,4 +1,4 @@
-/** Custom ReactFlow node: colour-coded by type, glows when it is the active step. */
+/** Flowchart node: a clean card with a coloured type marker; the active step gets an accent ring. */
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { memo } from 'react';
 
@@ -8,45 +8,40 @@ import type { NodeType } from '../../types';
 export type FlowNodeData = { label: string; kind: NodeType; line: number | null; active: boolean };
 export type FlowRFNode = Node<FlowNodeData, 'flow'>;
 
-/** Hexagonal "diamond" that keeps long conditions readable. */
-const DIAMOND = 'polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%)';
-
-const SHAPES: Record<NodeType, string> = {
-  start: '9999px',
-  end: '9999px',
-  process: '0.75rem',
-  io: '0.75rem',
-  decision: '0.5rem',
-};
+const KIND_LABEL: Record<NodeType, string> = { start: 'Start', end: 'End', process: 'Step', decision: 'Decision', io: 'Return / I/O' };
 
 function FlowNodeCardImpl({ data }: NodeProps<FlowRFNode>) {
   const color = NODE_COLORS[data.kind];
+  const terminal = data.kind === 'start' || data.kind === 'end';
   return (
-    <div className="relative" title={data.line ? `Line ${data.line}` : undefined}>
-      <Handle type="target" position={Position.Top} className="!h-1.5 !w-1.5 !border-0" style={{ background: color }} />
-      <div
-        className="px-4 py-2.5 font-mono text-[12px] leading-[18px] transition-all duration-300"
-        style={{
-          borderRadius: SHAPES[data.kind],
-          border: `${data.active ? 2.5 : 1.5}px solid ${color}`,
-          background: `color-mix(in srgb, ${color} ${data.active ? 30 : 9}%, var(--surface-strong))`,
-          boxShadow: data.active ? `0 0 0 4px color-mix(in srgb, ${color} 25%, transparent), 0 0 28px ${color}` : 'var(--glass-shadow)',
-          color: 'var(--text)',
-          whiteSpace: 'pre',
-          textAlign: 'center',
-          clipPath: data.kind === 'decision' ? DIAMOND : undefined,
-          paddingInline: data.kind === 'decision' ? 24 : undefined,
-          fontStyle: data.kind === 'io' ? 'italic' : undefined,
-        }}
-      >
-        {data.label}
-      </div>
-      {data.line != null && (
-        <span className="absolute -right-2 -top-2 rounded-full px-1.5 text-[9px] font-semibold" style={{ background: color, color: '#0f0b1a' }}>
-          L{data.line}
-        </span>
+    <div
+      className="relative transition-all duration-300"
+      style={{
+        borderRadius: terminal ? 999 : 14,
+        background: data.active ? color : 'var(--surface-1)',
+        border: `1px solid ${data.active ? color : 'var(--separator-strong)'}`,
+        boxShadow: data.active ? `0 0 0 5px color-mix(in srgb, ${color} 28%, transparent), 0 12px 30px rgba(0,0,0,0.35)` : '0 4px 14px rgba(0,0,0,0.18)',
+        transform: data.active ? 'scale(1.04)' : undefined,
+        padding: terminal ? '8px 18px' : '8px 14px 10px',
+        minWidth: 90,
+      }}
+      title={data.line ? `Line ${data.line}` : undefined}
+    >
+      <Handle type="target" position={Position.Top} className="!h-1.5 !w-1.5 !border-0" style={{ background: 'var(--separator-strong)' }} />
+      {!terminal && (
+        <div className="mb-1 flex items-center gap-1.5 text-[9.5px] font-semibold uppercase tracking-wider" style={{ color: data.active ? 'rgba(255,255,255,0.85)' : 'var(--text-faint)' }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: data.active ? '#fff' : color }} />
+          {KIND_LABEL[data.kind]}
+          {data.line != null && <span className="ml-auto font-mono normal-case tracking-normal">L{data.line}</span>}
+        </div>
       )}
-      <Handle type="source" position={Position.Bottom} className="!h-1.5 !w-1.5 !border-0" style={{ background: color }} />
+      <div
+        className="text-center font-mono text-[12px] leading-[18px]"
+        style={{ whiteSpace: 'pre', color: data.active ? '#fff' : 'var(--text)', fontWeight: terminal ? 600 : 400 }}
+      >
+        {data.kind === 'decision' ? `${data.label}` : data.label}
+      </div>
+      <Handle type="source" position={Position.Bottom} className="!h-1.5 !w-1.5 !border-0" style={{ background: 'var(--separator-strong)' }} />
     </div>
   );
 }

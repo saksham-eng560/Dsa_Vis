@@ -25,14 +25,9 @@ export function ArrayView({ values, highlights, edgeLabels }: ArrayViewProps) {
               <span className="font-mono text-[0.65rem]" style={{ color: 'var(--text-faint)' }}>{i}</span>
               <motion.div
                 layout
-                animate={{
-                  scale: color ? 1.08 : 1,
-                  borderColor: color ?? 'var(--glass-border-hover)',
-                  boxShadow: color ? `0 0 18px ${color}` : '0 0 0 transparent',
-                }}
+                animate={{ scale: color ? 1.08 : 1, y: color ? -4 : 0, backgroundColor: color ?? 'var(--surface-3)', color: color ? '#ffffff' : 'var(--text)' }}
                 transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                className="flex h-12 min-w-12 items-center justify-center rounded-xl border-2 px-2 font-mono text-sm font-semibold"
-                style={{ background: color ? `color-mix(in srgb, ${color} 18%, transparent)` : 'var(--glass-bg-hover)' }}
+                className="flex h-12 min-w-12 items-center justify-center rounded-[12px] px-2 text-[15px] font-semibold tabular-nums"
               >
                 <motion.span key={String(value)} initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
                   {show(value)}

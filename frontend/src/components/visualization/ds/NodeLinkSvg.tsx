@@ -43,7 +43,7 @@ export function NodeLinkSvg({ nodes, edges, highlights, width, height, directed 
     <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto block h-auto w-full" style={{ maxHeight: 380, maxWidth: width * 1.4 }} role="img" aria-label={ariaLabel}>
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-faint)" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--separator-strong)" />
         </marker>
       </defs>
       {edges.map((e) => {
@@ -64,8 +64,8 @@ export function NodeLinkSvg({ nodes, edges, highlights, width, height, directed 
               animate={{ d }}
               transition={SPRING}
               fill="none"
-              stroke="var(--glass-border-hover)"
-              strokeWidth={2}
+              stroke="var(--separator-strong)"
+              strokeWidth={1.75}
               markerEnd={directed ? 'url(#arrow)' : undefined}
             />
             {e.label && (
@@ -92,14 +92,12 @@ export function NodeLinkSvg({ nodes, edges, highlights, width, height, directed 
             >
               <motion.circle
                 r={radius}
-                animate={{
-                  fill: color ? `color-mix(in srgb, ${color} 28%, transparent)` : 'var(--glass-bg-active)',
-                  stroke: color ?? 'var(--glass-border-hover)',
-                }}
-                strokeWidth={2.5}
-                style={{ filter: color ? `drop-shadow(0 0 8px ${color})` : undefined }}
+                animate={{ fill: color ?? 'var(--surface-3)', scale: color ? 1.08 : 1 }}
+                transition={SPRING}
+                stroke="var(--surface-1)"
+                strokeWidth={3}
               />
-              <text textAnchor="middle" dy="0.35em" fontSize={13} fontWeight={600} fill="var(--text)" fontFamily="var(--font-mono)">
+              <text textAnchor="middle" dy="0.35em" fontSize={13} fontWeight={600} fill={color ? '#fff' : 'var(--text)'} fontFamily="var(--font-sans)">
                 {n.label.length > 5 ? `${n.label.slice(0, 4)}…` : n.label}
               </text>
               {pointers.length > 0 && (

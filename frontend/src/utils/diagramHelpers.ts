@@ -13,7 +13,8 @@ export function nodeSize(node: FlowNode): { width: number; height: number } {
   const lines = node.label.split('\n');
   const longest = Math.max(...lines.map((l) => l.length), 4);
   const width = Math.min(Math.max(longest * 7.4 + 36, 110), 380);
-  const height = lines.length * 18 + (node.type === 'decision' ? 34 : 22);
+  const terminal = node.type === 'start' || node.type === 'end';
+  const height = lines.length * 18 + (terminal ? 22 : 42); // non-terminal cards carry a type label row
   return { width, height };
 }
 
