@@ -33,14 +33,23 @@ interface NodeLinkSvgProps {
   directed?: boolean;
   radius?: number;
   ariaLabel: string;
+  /** Never scaled above natural size; scaled down to fit this height. */
+  maxHeight?: number;
 }
 
 const SPRING = { type: 'spring', stiffness: 170, damping: 22 } as const;
 
-export function NodeLinkSvg({ nodes, edges, highlights, width, height, directed = false, radius = 20, ariaLabel }: NodeLinkSvgProps) {
+export function NodeLinkSvg({ nodes, edges, highlights, width, height, directed = false, radius = 18, ariaLabel, maxHeight = 300 }: NodeLinkSvgProps) {
   const pos = new Map(nodes.map((n) => [n.id, n]));
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto block h-auto w-full" style={{ maxHeight: 380, maxWidth: width * 1.4 }} role="img" aria-label={ariaLabel}>
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="mx-auto block h-auto w-full"
+      style={{ maxHeight: maxHeight, maxWidth: width }}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label={ariaLabel}
+    >
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--separator-strong)" />

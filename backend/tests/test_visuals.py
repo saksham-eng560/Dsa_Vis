@@ -29,7 +29,7 @@ async def test_cpp_recursion_tree_for_plain_recursion() -> None:
     tree = run.call_tree
     assert tree and tree.recursive and run.error is None
     f_calls = [n for n in tree.nodes if n.func == "f"]
-    assert len(f_calls) == 15 and tree.repeated == 9
+    assert len(f_calls) == 15 and tree.repeated == 3  # f(2,4) once, f(3,4) twice; base cases don't count
     root = next(n for n in f_calls if n.args == "0, 4")
     assert root.ret == "5" and root.end is not None
     assert {n.ret for n in f_calls if n.args == "4, 4"} == {"1"}
@@ -42,9 +42,8 @@ async def test_memo_vs_naive_repeated_subproblems() -> None:
     naive = (await trace_python(NAIVE, None, max_steps=400, timeout_s=5, memory_mb=256)).call_tree
     assert memo and naive and memo.recursive and naive.recursive
     assert [n.args for n in memo.nodes][:3] == ["5", "4", "3"]  # shared memo dict kept out of labels
-    # base case (n <= 1) is checked before the memo, so climb(1) really recomputes; the others are memo hits
-    assert (len(memo.nodes), memo.repeated, memo.cache_hits) == (9, 1, 2)
-    assert (len(naive.nodes), naive.repeated, naive.cache_hits) == (15, 9, 0)  # naive recomputes
+    assert (len(memo.nodes), memo.repeated, memo.cache_hits) == (9, 0, 2)  # repeats answered by the memo
+    assert (len(naive.nodes), naive.repeated, naive.cache_hits) == (15, 3, 0)  # naive redoes climb(3), climb(2)×2
 
 
 async def test_iterative_code_has_no_recursion_tree_flag() -> None:
@@ -74,7 +73,7 @@ async def test_plan_is_validated_against_the_trace() -> None:
 async def test_default_plan_explains_repeated_work() -> None:
     run = await trace_python(NAIVE, None, max_steps=400, timeout_s=5, memory_mb=256)
     plan = default_plan(run)
-    assert plan.show_recursion_tree and "9 of 15" in plan.insight
+    assert plan.show_recursion_tree and "3 of 15" in plan.insight
 
 
 async def test_ai_plan_reaches_the_api(make_client) -> None:
@@ -89,3 +88,20 @@ async def test_ai_plan_reaches_the_api(make_client) -> None:
     shown = [s for s in run["steps"] if s["data_structures"]]
     assert shown[-1]["data_structures"][0]["caption"] == "memo[n] = ways to climb n stairs"
     assert "Recursion: yes" in llm.prompts[0] and "memo (hash_map)" in llm.prompts[0]
+
+
+INORDER_CPP = (
+    "class Solution {\n    vector<int> ans;\nprivate:\n    void inorder(TreeNode* root) {\n"
+    "        if(root == NULL) return;\n        inorder(root->left);\n        ans.push_back(root->val);\n"
+    "        inorder(root->right);\n    }\npublic:\n    vector<int> inorderTraversal(TreeNode* root) {\n"
+    "        inorder(root);\n        return ans;\n    }\n};\n"
+)
+
+
+@pytest.mark.skipif(find_compiler() is None, reason="no C++ compiler")
+async def test_large_cpp_trace_is_not_truncated() -> None:
+    big = "[" + ",".join(str(i) for i in range(1, 32)) + "]"  # 31-node tree: a multi-MB trace
+    run = await trace_cpp_problem(catalog()["94"], INORDER_CPP, [big], "root", max_steps=400, memory_mb=512)
+    assert run.error is None and run.steps and run.call_tree
+    assert [n.args for n in run.call_tree.nodes[:3]] == ["node 1", "node 1", "node 2"]
+    assert all(n.ret is None for n in run.call_tree.nodes if n.func == "inorder")  # void: no badges

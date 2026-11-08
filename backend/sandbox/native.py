@@ -53,7 +53,8 @@ async def _run(argv: list[str], timeout_s: float, memory_mb: int | None, cwd: Pa
         _kill_group(proc.pid)
         await proc.wait()
         return NativeResult("", "", -1, True)
-    return NativeResult(out[:1_000_000].decode("utf-8", "replace"), err[:20_000].decode("utf-8", "replace"),
+    # stderr carries the trace JSON (can be several MB for big inputs) — keep it whole
+    return NativeResult(out[:2_000_000].decode("utf-8", "replace"), err[:32_000_000].decode("utf-8", "replace"),
                         proc.returncode if proc.returncode is not None else -1, False)
 
 

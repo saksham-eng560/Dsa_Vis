@@ -57,8 +57,9 @@ async def _run(source: str, plain: str, code: str, label: str, memory_mb: int) -
     res = await run_binary(binary, "0", TRACE_TIMEOUT_S, memory_mb)
     m = _TRACE_RX.search(res.stderr)
     if res.timed_out or not m:
+        user_err = res.stderr.split("\n@@CODELENS_TRACE@@", 1)[0].strip()  # never show raw trace data
         why = ("Execution timed out (possible infinite loop)." if res.timed_out
-               else res.stderr.strip()[:300] or "crashed")
+               else user_err[:300] or "The program stopped before the trace could be recorded.")
         return DryRun(source="trace", input_example=label, error=why)
     doc = json.loads(m.group(1))
     stdout, _, result = res.stdout.partition(f"\n{RESULT_MARKER}\n")
@@ -67,7 +68,7 @@ async def _run(source: str, plain: str, code: str, label: str, memory_mb: int) -
     if result.strip() and steps:
         steps[-1].output_so_far += f"\n→ result = {result.strip()}"
     return DryRun(input_example=label, steps=steps, source="trace", truncated=bool(doc.get("truncated")),
-                  error=error, call_tree=build_call_tree(doc["steps"]))
+                  error=error, call_tree=build_call_tree(doc["steps"], null="null"))
 
 
 async def trace_cpp_program(code: str, *, max_steps: int, memory_mb: int) -> DryRun:

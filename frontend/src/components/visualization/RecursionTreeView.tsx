@@ -7,13 +7,15 @@
 import { hierarchy, tree as d3tree, type HierarchyPointNode } from 'd3-hierarchy';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GitFork, Maximize2, Minimize2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
+import { useFitScale } from '../../hooks/useFitScale';
 import { useJumpToLine } from '../../hooks/useJumpToLine';
 import type { CallNode, CallTree } from '../../types';
 
-const NODE_H = 30;
-const LEVEL_GAP = 74;
+const NODE_H = 26;
+const LEVEL_GAP = 58;
+const MAX_H = 380;
 
 interface TreeDatum {
   node: CallNode | null; // null = synthetic root for several top-level calls
@@ -23,11 +25,12 @@ interface TreeDatum {
 function label(n: CallNode) {
   return `${n.func}(${n.args})`;
 }
-const widthOf = (n: CallNode) => Math.min(Math.max(label(n).length * 7.2 + 22, 54), 190);
+const widthOf = (n: CallNode) => Math.min(Math.max(label(n).length * 6.6 + 18, 48), 170);
 
 export function RecursionTreeView({ tree, step }: { tree: CallTree; step: number }) {
   const { toStep } = useJumpToLine();
   const [fit, setFit] = useState(true);
+  const box = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(() => tree.nodes.filter((n) => n.start <= step), [tree.nodes, step]);
   const active = useMemo(() => new Set(visible.filter((n) => n.end === null || n.end >= step).map((n) => n.id)), [visible, step]);
@@ -64,6 +67,9 @@ export function RecursionTreeView({ tree, step }: { tree: CallTree; step: number
     };
   }, [visible]);
 
+  const scale = useFitScale(box, layout?.width ?? 0, layout?.height ?? 0, MAX_H);
+  const zoom = fit ? scale : 1;
+
   const maxDepth = useMemo(() => {
     const depth = new Map<number, number>();
     let max = 0;
@@ -95,19 +101,18 @@ export function RecursionTreeView({ tree, step }: { tree: CallTree; step: number
           {tree.repeated > 0 && <Legend color="var(--accent-orange)" text="recomputed" ring />}
           {tree.cache_hits > 0 && <Legend color="var(--accent-secondary)" text="cache hit" ring />}
           <button className="chip focus-ring cursor-pointer" onClick={() => setFit(!fit)} aria-label={fit ? 'Show at full size' : 'Fit to panel'}>
-            {fit ? <Maximize2 size={11} /> : <Minimize2 size={11} />} {fit ? '100%' : 'Fit'}
+            {fit ? <Maximize2 size={11} /> : <Minimize2 size={11} />} {fit ? `${Math.round(scale * 100)}% · 100%` : 'Fit'}
           </button>
         </span>
       </header>
       {!layout ? (
         <p className="py-8 text-center text-sm" style={{ color: 'var(--text-faint)' }}>The first call appears as soon as it is made.</p>
       ) : (
-        <div className="overflow-auto scroll-thin" style={{ maxHeight: 460 }}>
+        <div ref={box} className="overflow-auto scroll-thin" style={{ maxHeight: fit ? MAX_H + 8 : 520 }}>
           <svg
             viewBox={`${layout.minX} ${layout.minY} ${layout.width} ${layout.height}`}
-            width={fit ? '100%' : layout.width}
-            height={fit ? undefined : layout.height}
-            style={fit ? { maxHeight: 440 } : undefined}
+            width={layout.width * zoom}
+            height={layout.height * zoom}
             className="mx-auto block"
             role="img"
             aria-label={`Recursion tree with ${visible.length} calls`}
@@ -148,7 +153,7 @@ export function RecursionTreeView({ tree, step }: { tree: CallTree; step: number
                       strokeWidth={n.repeat ? 2 : 0}
                       strokeDasharray={n.cached ? '4 3' : undefined}
                     />
-                    <text textAnchor="middle" dy="0.35em" fontSize={12} fontFamily="var(--font-mono)" fill={isCurrent ? '#fff' : 'var(--text)'} fontWeight={isCurrent ? 600 : 400}>
+                    <text textAnchor="middle" dy="0.35em" fontSize={11} fontFamily="var(--font-mono)" fill={isCurrent ? '#fff' : 'var(--text)'} fontWeight={isCurrent ? 600 : 400}>
                       {label(n).length > 26 ? `${label(n).slice(0, 25)}…` : label(n)}
                     </text>
                     {returned && n.ret !== null && (

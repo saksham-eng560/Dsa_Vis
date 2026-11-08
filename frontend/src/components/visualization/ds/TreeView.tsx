@@ -26,7 +26,7 @@ export function TreeView({ root, highlights }: { root: TreeNode | null; highligh
       if (!slot.node || kids.every((k) => k === null)) return null;
       return kids.map((k, i) => ({ node: k, key: k?.id ?? `${slot.key}-null-${i}` }));
     });
-    const nodeSize: [number, number] = [56, 72];
+    const nodeSize: [number, number] = [46, 58];
     d3tree<Slot>().nodeSize(nodeSize)(h);
     const all = h.descendants();
     const xs = all.map((d) => d.x ?? 0);
