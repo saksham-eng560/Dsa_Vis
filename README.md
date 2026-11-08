@@ -17,6 +17,7 @@ Switch the editor to **LeetCode**, then search by number, title words, slug or U
 - **Custom tests.** Add your own test cases in LeetCode's input format, one value per line: `[2,7,11,15]` then `9`. Trees use level order (`[3,9,20,null,null,15,7]`), and design problems take the operations list and the arguments list. The expected output is optional. Custom tests and your code are saved per problem.
 - **Run tests.** Your `Solution` is judged on every case in the sandbox. Each case gets a verdict like LeetCode's: Accepted, Wrong Answer, Runtime Error, Time Limit Exceeded or Compile Error. You also see your output, the expected output, stdout and run time. You can compare outputs exactly, in any order, or in any order at every level of nesting.
 - **Native C++ dry runs.** Your code is instrumented (a recorder call before each statement, same line numbers), compiled and run in the sandbox, so the trace shows real values: arrays with index pointers, hash maps, stacks/queues, linked lists whose arrows flip as you rewire them, and whole trees with the current node highlighted inside recursive helpers. Segfaults show the steps leading up to the crash. The AI trace is only a fallback (e.g. JavaScript, or code the instrumenter can't handle).
+- **Recursion trees and planned visuals.** Every recursive solution (Python or C++) gets a recursion tree built from the real calls: arguments and return values on each node, the live call stack highlighted, recomputed subproblems in orange and memo/cache hits in green, so you can see why memoisation or a DP table helps. The AI also returns a *visual plan* (which traced variables to show, in what order, with problem-specific captions and a “what to watch” hint). It's declarative JSON, checked against the real trace, so it can't invent data or run code. A built-in plan is used when no model is running.
 - **Ask CodeLens (chat).** The button at the bottom left opens a tutor chat. It automatically sends your code, the problem, the complexity, the current dry-run step and any failing tests to the model, so you can ask "why did `cnt` change here?" or "give me a hint".
 - **C++.** Your class is compiled with clang++/g++ (C++17, a `bits/stdc++.h` shim for macOS) and each test runs in its own process with time limits. On macOS it also runs under `sandbox-exec` without network access. Compile errors point at your lines, and segfaults show as a Runtime Error. 
 - **Visualize.** Runs the dry run on that one test case, with `ListNode`/`TreeNode` inputs built for you. Trees and lists animate as whole structures, and class-based solutions (e.g. MinStack) show their `self.<field>` state.
@@ -163,7 +164,7 @@ frontend/src/
 ## Testing
 
 ```bash
-cd backend && pytest            # 116 tests: tracer, sandbox, flowcharts, Big-O, LLM, API, SSE, LeetCode judge/fetch
+cd backend && pytest            # 123 tests: tracer, sandbox, flowcharts, Big-O, LLM, API, SSE, LeetCode judge/fetch
 cd backend && ruff check .
 cd frontend && npm test         # vitest: language detection, Big-O helpers, share links, SSE parsing, diagram utils
 cd frontend && npm run build    # strict TypeScript + production bundle

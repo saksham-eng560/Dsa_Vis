@@ -11,6 +11,7 @@ from pathlib import Path
 
 from api.schemas.leetcode import LCProblem
 from api.schemas.response import DryRun
+from core.call_tree import build_call_tree
 from core.cpp_instrument import instrument
 from core.lc_cpp import BITS_STDCPP, PRELUDE, RESULT_MARKER, build_driver
 from core.lc_runtime import TestInputError
@@ -66,7 +67,7 @@ async def _run(source: str, plain: str, code: str, label: str, memory_mb: int) -
     if result.strip() and steps:
         steps[-1].output_so_far += f"\n→ result = {result.strip()}"
     return DryRun(input_example=label, steps=steps, source="trace", truncated=bool(doc.get("truncated")),
-                  error=error)
+                  error=error, call_tree=build_call_tree(doc["steps"]))
 
 
 async def trace_cpp_program(code: str, *, max_steps: int, memory_mb: int) -> DryRun:

@@ -13,6 +13,8 @@ namespace codelens_rt {
 struct Ctx {
     std::vector<std::string> steps;
     std::vector<const char*> frames;
+    std::vector<std::string> rets;  // pending return value per frame (set by ret())
+    std::vector<int> lines;  // last executed line per frame
     std::unordered_map<const void*, int> ids;
     int max_steps = 400;
     bool truncated = false;
@@ -187,11 +189,6 @@ inline void flush(const char* error) {
     std::fflush(stderr);
 }
 
-struct Frame {
-    explicit Frame(const char* name) { ctx().frames.push_back(name); }
-    ~Frame() { if (!ctx().frames.empty()) ctx().frames.pop_back(); }
-};
-
 inline void add(std::string&, Seen&) {}
 template <class T, class... R> void add(std::string& o, Seen& s, const char* name, const T& x, const R&... rest) {
     if (o.size() > 1) o += ",";
@@ -200,22 +197,66 @@ template <class T, class... R> void add(std::string& o, Seen& s, const char* nam
     add(o, s, rest...);
 }
 
-template <class... A> void step(int line, const A&... vars) {
+inline void guard_budget() {
     auto& c = ctx();
     if (static_cast<int>(c.steps.size()) >= c.max_steps) {
         c.truncated = true;
         flush(nullptr);
         std::_Exit(0);
     }
+}
+
+inline std::string event(const char* kind, int line, const std::string& locals, const std::string* ret) {
+    auto& c = ctx();
+    const char* fn = c.frames.empty() ? "main" : c.frames.back();
+    int depth = c.frames.empty() ? 0 : static_cast<int>(c.frames.size()) - 1;
+    std::string e = R"({"line":)" + (line > 0 ? std::to_string(line) : std::string("null")) + R"(,"event":")" + kind +
+                    R"(","func":)" + esc(fn) + R"(,"depth":)" + std::to_string(depth) + R"(,"out":)" +
+                    std::to_string(outbuf().n) + R"(,"locals":)" + locals + R"(,"globals":{})";
+    if (ret) e += R"(,"ret":)" + (ret->empty() ? std::string("null") : *ret);
+    return e + "}";
+}
+
+// Function frame: records the call (with arguments) and the return (with value).
+struct Frame {
+    template <class... A> Frame(int line, const char* name, const A&... args) {
+        auto& c = ctx();
+        c.frames.push_back(name);
+        c.rets.emplace_back();
+        c.lines.push_back(line);
+        guard_budget();
+        std::string locals = "{";
+        Seen seen;
+        add(locals, seen, args...);
+        c.steps.push_back(event("call", line, locals + "}", nullptr));
+    }
+    ~Frame() {
+        auto& c = ctx();
+        if (c.frames.empty()) return;
+        if (static_cast<int>(c.steps.size()) < c.max_steps) {
+            c.steps.push_back(event("return", c.lines.back(), "{}", &c.rets.back()));
+        }
+        c.frames.pop_back();
+        c.rets.pop_back();
+        c.lines.pop_back();
+    }
+};
+
+// Wraps `return expr;` → `return codelens_rt::ret(expr);` to capture the value.
+template <class T> T&& ret(T&& value) {
+    auto& c = ctx();
+    if (!c.rets.empty()) { Seen s; c.rets.back() = v(value, s); }
+    return std::forward<T>(value);
+}
+
+template <class... A> void step(int line, const A&... vars) {
+    auto& c = ctx();
+    guard_budget();
     std::string locals = "{";
     Seen seen;
     add(locals, seen, vars...);
-    locals += "}";
-    const char* fn = c.frames.empty() ? "main" : c.frames.back();
-    int depth = c.frames.empty() ? 0 : static_cast<int>(c.frames.size()) - 1;
-    c.steps.push_back(R"({"line":)" + std::to_string(line) + R"(,"event":"line","func":)" + esc(fn) +
-                      R"(,"depth":)" + std::to_string(depth) + R"(,"out":)" + std::to_string(outbuf().n) +
-                      R"(,"locals":)" + locals + R"(,"globals":{}})");
+    if (!c.lines.empty()) c.lines.back() = line;
+    c.steps.push_back(event("line", line, locals + "}", nullptr));
 }
 
 inline void on_signal(int sig) {

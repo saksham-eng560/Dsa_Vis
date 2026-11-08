@@ -1,12 +1,13 @@
 /** Dry Run tab: step narration, animated data structure, controls, watch + output. */
 import { motion } from 'framer-motion';
 import type { ReactElement } from 'react';
-import { AlertTriangle, CornerDownRight, CornerUpLeft, Cpu, Sparkles } from 'lucide-react';
+import { AlertTriangle, CornerDownRight, CornerUpLeft, Cpu, Lightbulb, Sparkles } from 'lucide-react';
 
 import { useDryRunKeys, useDryRunPlayback } from '../../hooks/useDryRun';
 import { useAppStore } from '../../stores/appStore';
 import type { DryRun, DryRunStep } from '../../types';
 import { DataStructureView } from './DataStructureView';
+import { RecursionTreeView } from './RecursionTreeView';
 import { DryRunEmpty } from './DryRunEmpty';
 import { DryRunPlayer } from './DryRunPlayer';
 import { OutputPanel } from './OutputPanel';
@@ -24,6 +25,8 @@ export function DryRunTab({ dryRun, active }: { dryRun: DryRun; active: boolean 
   useDryRunKeys(active);
   const index = useAppStore((s) => s.step);
   const step = dryRun.steps[index];
+  const showTree = Boolean(dryRun.call_tree?.recursive && dryRun.plan?.show_recursion_tree !== false);
+  const structures = step?.data_structures?.length ? step.data_structures : step?.data_structure_state ? [step.data_structure_state] : [];
 
   if (!dryRun.steps.length) return <DryRunEmpty dryRun={dryRun} />;
 
@@ -54,9 +57,31 @@ export function DryRunTab({ dryRun, active }: { dryRun: DryRun; active: boolean 
         </motion.div>
       )}
 
-      <div className="glass-inset min-h-[200px] p-3">
-        <DataStructureView ds={step?.data_structure_state} />
-      </div>
+      {dryRun.plan?.insight && (
+        <p className="flex gap-2 rounded-2xl px-4 py-3 text-sm leading-relaxed" style={{ background: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)' }}>
+          <Lightbulb size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--accent-primary)' }} aria-hidden />
+          <span>{dryRun.plan.insight}</span>
+        </p>
+      )}
+
+      {showTree && dryRun.call_tree && <RecursionTreeView tree={dryRun.call_tree} step={index} />}
+
+      {structures.length > 0 ? (
+        <div className={`grid gap-3 ${structures.length > 1 ? 'xl:grid-cols-2' : ''}`}>
+          {structures.map((ds) => (
+            <div key={ds.name} className="glass-inset min-h-[160px] p-3">
+              <DataStructureView ds={ds} />
+              {ds.caption && <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{ds.caption}</p>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        !showTree && (
+          <div className="glass-inset min-h-[160px] p-3">
+            <DataStructureView ds={null} />
+          </div>
+        )
+      )}
 
       <DryRunPlayer total={dryRun.steps.length} />
 

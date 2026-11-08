@@ -72,6 +72,12 @@ _EXAMPLE_INSIGHT = {
         "Resetting `cur` to 0 instead of to `x`, which breaks negative-only inputs.",
     ],
     "related_algorithms": ["Maximum Product Subarray", "Best Time to Buy and Sell Stock", "Prefix sums"],
+    "visual_plan": {
+        "focus": ["nums"],
+        "captions": {"nums": "the input — the blue pointer is the element x being added to the running slice"},
+        "show_recursion_tree": False,
+        "insight": "Watch `cur` reset to x whenever the running sum turns negative — that is the restart rule.",
+    },
 }
 
 _EXAMPLE_DRY_RUN = {
@@ -123,7 +129,10 @@ def analysis_prompt(code: str, language: str, hints: str, need_dry_run: bool = F
         "variable names; why_it_works = 2-3 sentences; complexity explanations must say WHICH loops/calls cause the "
         "cost; 2-4 key_concepts; 3-5 edge_cases saying what happens; 1-3 optimizations (or say it's optimal and "
         "why); 2-3 common_mistakes; 2-4 related_algorithms. Use Big-O notation like O(1), O(log n), O(n), "
-        "O(n log n), O(n²), O(2ⁿ).",
+        "O(n log n), O(n²), O(2ⁿ). visual_plan: decide what the student should SEE for this problem — focus = "
+        "the traced variables (only from the list in the notes) in order of importance; captions = what each "
+        "variable means for THIS problem (e.g. \"dp[i] = ways to reach stair i\"); show_recursion_tree = true "
+        "for recursive solutions; insight = one sentence on what to watch in the animation.",
     ])
 
 

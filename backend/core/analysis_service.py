@@ -21,6 +21,7 @@ from core.lc_runtime import PRELUDE, prepare_test
 from core.llm_engine import LLMClient, LLMUnavailableError, complete
 from core.llm_merge import merge_analysis, merge_dry_run, merge_explanation
 from core.static_pipeline import ProblemContext, run_static
+from core.visual_plan import apply_plan, default_plan, describe_for_prompt, merge_plan
 from models.concepts import fill_offline
 from models.knowledge import enrich_offline
 from models.prompts import SYSTEM_PROMPT, analysis_prompt, dry_run_prompt, explain_prompt
@@ -48,6 +49,13 @@ class AnalysisService:
             raise CodeTooLargeError(f"Code exceeds {self.settings.max_code_chars} characters.")
 
     async def static(self, req: CodeRequest) -> AnalysisResult:
+        """Deterministic analysis with the default visual plan applied."""
+        result = await self._static(req)
+        if result.dry_run.steps:
+            result = result.model_copy(update={"dry_run": apply_plan(result.dry_run, default_plan(result.dry_run))})
+        return result
+
+    async def _static(self, req: CodeRequest) -> AnalysisResult:
         """Deterministic analysis only (used by the focused endpoints)."""
         self._check(req)
         if isinstance(req, AnalyzeRequest) and req.problem and req.language not in ("auto", "python"):
@@ -114,7 +122,8 @@ class AnalysisService:
                 async for event in self._stream(prompt, "insight", text):
                     yield event
                 data = extract_json("".join(text))
-                result = _keep_title(merge_analysis(static, data), static, req) if data else _warn(
+                result = _keep_title(merge_plan(merge_analysis(static, data), data.get("visual_plan")), static, req) \
+                    if data else _warn(
                     static, "The AI explanation was not valid JSON; showing static analysis.")
             except (LLMUnavailableError, httpx.HTTPError, OSError, ValueError) as exc:
                 result = _warn(static, f"AI model unavailable ({exc}); showing static analysis.")
@@ -189,6 +198,8 @@ def _hints(static: AnalysisResult) -> str:
                      f"{static.dry_run.steps[-1].output_so_far[-200:]!r}")
     if static.dry_run.source != "trace" and static.dry_run.input_example:
         lines.append(f"- For dry_run, trace exactly this input: {static.dry_run.input_example}")
+    if facts := describe_for_prompt(static.dry_run):
+        lines.append(facts)
     if static.dry_run.error:
         lines.append(f"- Runtime error when executed: {static.dry_run.error}")
     return "\n".join(lines)

@@ -142,14 +142,17 @@ class _Instrumenter:
     def _func(self, fn: Stmt, outer: list[str]) -> None:
         if fn.body_pos < 0:
             return
-        self.inserts.append((fn.body_pos, f'codelens_rt::Frame codelens_frame_("{fn.name}"); '))
-        self._block(fn.body, outer + param_vars(fn.text))
+        params = param_vars(fn.text)
+        args = "".join(f', "{p}", {p}' for p in params)
+        self.inserts.append((fn.body_pos, f'codelens_rt::Frame codelens_frame_({fn.line}, "{fn.name}"{args}); '))
+        self._block(fn.body, outer + params)
 
     def _block(self, stmts: list[Stmt], scope: list[str]) -> None:
         local = list(scope)
         for s in stmts:
             if s.pos >= 0 and s.kind != "func" and self._safe(s.pos):
                 self.inserts.append((s.pos, self._step(s.line, local)))
+            self._wrap_return(s)
             if s.kind in ("simple", "io"):
                 local += declared_vars(s.text)
             elif s.kind == "loop":
@@ -166,6 +169,17 @@ class _Instrumenter:
             elif s.kind == "block":
                 self._block(s.body, local)
 
+    def _wrap_return(self, s: Stmt) -> None:
+        """`return expr;` → `return codelens_rt::ret(expr);` (records the returned value)."""
+        if s.kind != "return" or s.pos < 0 or s.end <= s.pos or not s.text.startswith("return"):
+            return
+        expr = s.text[len("return"):].strip()
+        semi = s.end - 1
+        if not expr or expr.startswith("{") or self.src[semi] != ";" or self.src[s.pos:s.pos + 6] != "return":
+            return
+        self.inserts.append((s.pos + 6, " codelens_rt::ret("))
+        self.inserts.append((semi, ")", 0))  # type: ignore[arg-type]
+
     def _branch(self, body: list[Stmt], body_pos: int, scope: list[str]) -> None:
         if body_pos >= 0:
             self._block(body, scope)
@@ -179,6 +193,7 @@ class _Instrumenter:
         child = body[0]
         self.inserts.append((child.pos, "{ " + self._step(line or child.line, scope)))
         self.inserts.append((child.end, " }", 0))  # type: ignore[arg-type]
+        self._wrap_return(child)
         self._block_children(child, scope)
 
     def _block_children(self, s: Stmt, scope: list[str]) -> None:

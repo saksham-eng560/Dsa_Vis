@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from api.schemas.response import DataStructureState, DryRun, DryRunStep
+from core.call_tree import build_call_tree
 from core.ds_highlights import highlights
 from core.ds_inference import classify, score, to_state
 from core.node_registry import NodeRegistry
@@ -50,6 +51,7 @@ async def trace_python(
     if doc.get("result") is not None and steps:
         steps[-1].output_so_far += f"\n→ {'result' if input_label else entry_call} = {doc['result']}"
     return DryRun(
+        call_tree=build_call_tree(doc["steps"]),
         input_example=label or "",
         steps=steps,
         source="trace",
@@ -70,8 +72,11 @@ def _scope(raw: dict) -> dict[str, Value]:
     return scope
 
 
-def _pick_focus(raw_steps: list[dict], heap_names: frozenset[str]) -> tuple[str, str] | None:
-    """Choose the (variable, kind) that best represents the algorithm's state."""
+MAX_FOCI = 4
+
+
+def _pick_foci(raw_steps: list[dict], heap_names: frozenset[str]) -> list[tuple[str, str]]:
+    """Rank the (variable, kind) pairs that best represent the algorithm's state."""
     best: dict[tuple[str, str], int] = {}
     for raw in raw_steps:
         for name, value in _scope(raw).items():
@@ -79,7 +84,23 @@ def _pick_focus(raw_steps: list[dict], heap_names: frozenset[str]) -> tuple[str,
             if kind:
                 key = (name, kind)
                 best[key] = max(best.get(key, 0), score(kind, name, value)) + 1
-    return max(best, key=lambda k: best[k]) if best else None
+    ranked = sorted(best, key=lambda k: best[k], reverse=True)
+    picked: list[tuple[str, str]] = []
+    for name, kind in ranked:
+        if any(n == name for n, _ in picked):
+            continue
+        # one view per linked structure is enough (they all draw the whole structure)
+        if kind in ("tree", "linked_list") and any(k == kind for _, k in picked):
+            continue
+        picked.append((name, kind))
+        if len(picked) == MAX_FOCI:
+            break
+    return picked
+
+
+def _pick_focus(raw_steps: list[dict], heap_names: frozenset[str]) -> tuple[str, str] | None:
+    foci = _pick_foci(raw_steps, heap_names)
+    return foci[0] if foci else None
 
 
 def _focus_value(focus: tuple[str, str], raw: dict, heap_names: frozenset[str]) -> Value | None:
@@ -100,51 +121,63 @@ def _focus_value(focus: tuple[str, str], raw: dict, heap_names: frozenset[str]) 
     return None
 
 
+class _FocusTracker:
+    """Produces the snapshot of one tracked variable at every step."""
+
+    def __init__(self, focus: tuple[str, str], heap_names: frozenset[str]) -> None:
+        self.focus, self.heap_names = focus, heap_names
+        self.prev_value: Value | None = None
+        self.last_state: DataStructureState | None = None
+        self.registry = NodeRegistry()
+        self.root_id: int | None = None
+
+    def snapshot(self, raw: dict, scope: dict[str, Value]) -> DataStructureState | None:
+        name, kind = self.focus
+        value = _focus_value(self.focus, raw, self.heap_names)
+        if kind in ("tree", "linked_list"):
+            for v in scope.values():
+                self.registry.update(v)
+            if value is not None and self.root_id is None:
+                self.root_id = value.get("id")
+            if self.root_id is not None:  # whole structure, rebuilt from the freshest node data
+                value = (self.registry.all_lists(self.root_id) if kind == "linked_list"
+                         else self.registry.whole(kind, self.root_id))
+        pointer_scope = raw["locals"] or scope
+        if value is not None:
+            state = (self.registry.list_state(self.root_id) if kind == "linked_list" else to_state(kind, value))
+            ds = DataStructureState(type=kind, name=name, state=state,  # type: ignore[arg-type]
+                                    highlights=highlights(kind, value, self.prev_value, pointer_scope))
+            self.prev_value, self.last_state = value, ds
+            return ds
+        if self.last_state is not None and self.prev_value is not None:
+            # out of scope (e.g. inside a helper): keep the structure, refresh pointer highlights
+            return self.last_state.model_copy(update={
+                "highlights": highlights(kind, self.prev_value, None, pointer_scope)})
+        return None
+
+
 def build_steps(
     raw_steps: list[dict], stdout: str, code: str, heap_names: frozenset[str] = frozenset()
 ) -> list[DryRunStep]:
     """Convert harness events into API steps (pure function — unit tested)."""
     lines = code.splitlines()
-    focus = _pick_focus(raw_steps, heap_names)
+    trackers = [_FocusTracker(f, heap_names) for f in _pick_foci(raw_steps, heap_names)]
     steps: list[DryRunStep] = []
     prev_vars: dict[str, str] = {}
     prev_frame: tuple[str, int] | None = None
-    prev_focus_value: Value | None = None
-    last_state: DataStructureState | None = None
-    registry = NodeRegistry()
-    root_id: int | None = None
+    frame_vars: dict[tuple[str, int], dict[str, str]] = {}  # last variables seen in each frame
 
     for idx, raw in enumerate(raw_steps):
         scope = _scope(raw)
         variables = {k: fmt(v) for k, v in scope.items()}
         frame = (raw["func"], raw["depth"])
+        if raw["event"] == "return" and not variables:  # C++ returns carry no locals: keep the frame's last view
+            variables = dict(frame_vars.get(frame, {}))
+        frame_vars[frame] = variables
         changed = (
             [k for k, v in variables.items() if prev_vars.get(k) != v] if frame == prev_frame else []
         )
-        ds_state = last_state.model_copy(update={"highlights": []}) if last_state else None
-        value = _focus_value(focus, raw, heap_names) if focus else None
-        linked = focus is not None and focus[1] in ("tree", "linked_list")
-        if linked:
-            for v in scope.values():
-                registry.update(v)
-            if value is not None and root_id is None:
-                root_id = value.get("id")
-            if root_id is not None:  # whole structure, rebuilt from the freshest node data
-                value = (registry.all_lists(root_id) if focus[1] == "linked_list"  # type: ignore[index]
-                         else registry.whole(focus[1], root_id))  # type: ignore[index]
-        if focus and value is not None:
-            ds_state = DataStructureState(
-                type=focus[1],  # type: ignore[arg-type]
-                name=focus[0],
-                state=registry.list_state(root_id) if focus[1] == "linked_list" else to_state(focus[1], value),
-                highlights=highlights(focus[1], value, prev_focus_value, raw["locals"] or scope),
-            )
-            prev_focus_value, last_state = value, ds_state
-        elif focus and last_state is not None and prev_focus_value is not None:
-            # focus variable out of scope (e.g. inside a helper): keep the structure, refresh pointers
-            ds_state = last_state.model_copy(update={
-                "highlights": highlights(focus[1], prev_focus_value, None, raw["locals"] or scope)})
-
+        structures = [ds for t in trackers if (ds := t.snapshot(raw, scope)) is not None]
         steps.append(
             DryRunStep(
                 step=idx + 1,
@@ -155,7 +188,8 @@ def build_steps(
                 description=_describe(raw, lines, variables),
                 variables=variables,
                 changed=changed,
-                data_structure_state=ds_state,
+                data_structure_state=structures[0] if structures else None,
+                data_structures=structures,
                 output_so_far=stdout[: raw["out"]],
             )
         )

@@ -70,6 +70,8 @@ export interface GraphState {
 interface DSBase {
   name: string;
   highlights: Highlight[];
+  /** What this structure means for the problem (from the visual plan). */
+  caption?: string;
 }
 
 export type DataStructureState =
@@ -96,12 +98,46 @@ export interface DryRunStep {
   variables: Record<string, string>;
   changed: string[];
   data_structure_state: DataStructureState | null;
+  /** Every tracked structure at this step, in the plan's display order. */
+  data_structures: DataStructureState[];
   output_so_far: string;
+}
+
+export interface CallNode {
+  id: number;
+  parent: number | null;
+  func: string;
+  args: string;
+  ret: string | null;
+  /** 0-based step indices of the call and its return. */
+  start: number;
+  end: number | null;
+  /** Identical calls (same function + arguments) made before this one. */
+  repeat: number;
+  /** Repeat answered from a memo/cache without recursing. */
+  cached: boolean;
+}
+
+export interface CallTree {
+  nodes: CallNode[];
+  recursive: boolean;
+  repeated: number;
+  cache_hits: number;
+  truncated: boolean;
+}
+
+export interface VisualPlan {
+  focus: string[];
+  captions: Record<string, string>;
+  show_recursion_tree: boolean | null;
+  insight: string;
 }
 
 export interface DryRun {
   input_example: string;
   steps: DryRunStep[];
+  call_tree: CallTree | null;
+  plan: VisualPlan | null;
   source: Source;
   truncated: boolean;
   error: string | null;

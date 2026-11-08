@@ -290,7 +290,8 @@ async def test_cpp_free_program_native_trace(make_client) -> None:
         body = (await client.post("/api/analyze", json={"code": prog, "language": "cpp"})).json()
     run = body["dry_run"]
     assert run["source"] == "trace" and run["steps"][-1]["output_so_far"].startswith("1 2 3")
-    assert run["steps"][1]["data_structure_state"]["type"] == "array"
+    first = next(s["data_structure_state"] for s in run["steps"] if s["data_structure_state"])
+    assert first["type"] == "array"
 
 
 async def test_chat_streams_plain_text_with_context(make_client) -> None:

@@ -81,6 +81,7 @@ class DataStructureState(BaseModel):
     name: str = ""
     state: dict[str, Any] = Field(default_factory=dict)
     highlights: list[Highlight] = Field(default_factory=list)
+    caption: str = ""  # e.g. "dp[i] = number of ways to reach stair i" (from the visual plan)
 
 
 class DryRunStep(BaseModel):
@@ -92,13 +93,47 @@ class DryRunStep(BaseModel):
     description: str = ""
     variables: dict[str, str] = Field(default_factory=dict)
     changed: list[str] = Field(default_factory=list)
-    data_structure_state: DataStructureState | None = None
+    data_structure_state: DataStructureState | None = None  # primary view (first of data_structures)
+    data_structures: list[DataStructureState] = Field(default_factory=list)  # every tracked structure
     output_so_far: str = ""
+
+
+class CallNode(BaseModel):
+    """One function call in the recursion tree (step indices are 0-based into DryRun.steps)."""
+
+    id: int
+    parent: int | None = None
+    func: str
+    args: str = ""
+    ret: str | None = None
+    start: int
+    end: int | None = None  # step index of the return (None: never returned / truncated)
+    repeat: int = 0  # how many identical calls (same function + args) happened before this one
+    cached: bool = False  # repeat answered without recursing (memo / cache hit)
+
+
+class CallTree(BaseModel):
+    nodes: list[CallNode] = Field(default_factory=list)
+    recursive: bool = False  # some function calls itself (directly or indirectly)
+    repeated: int = 0  # calls that recomputed an already-seen subproblem
+    cache_hits: int = 0  # repeats answered from a memo/cache without recursing
+    truncated: bool = False
+
+
+class VisualPlan(BaseModel):
+    """What the AI decided to show for this problem/solution (declarative, safe to apply)."""
+
+    focus: list[str] = Field(default_factory=list)  # variable names in display order
+    captions: dict[str, str] = Field(default_factory=dict)
+    show_recursion_tree: bool | None = None
+    insight: str = ""  # one-line "what to watch" hint shown above the visuals
 
 
 class DryRun(BaseModel):
     input_example: str = ""
     steps: list[DryRunStep] = Field(default_factory=list)
+    call_tree: CallTree | None = None
+    plan: VisualPlan | None = None
     source: Source = "none"
     truncated: bool = False
     error: str | None = None
