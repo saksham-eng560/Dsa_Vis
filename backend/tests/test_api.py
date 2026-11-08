@@ -52,7 +52,8 @@ async def test_analyze_merges_llm_output(make_client) -> None:
     assert body["complexity"]["source"] == "llm" and body["complexity"]["time"]["best"] == "O(n)"
     assert [c["concept"] for c in body["key_concepts"]] == ["Swapping"]  # invalid item dropped
     assert body["dry_run"]["source"] == "trace"  # real trace beats the LLM
-    assert "dry_run" not in llm.prompts[0].split("Respond with JSON")[1]  # not requested for Python
+    assert len(llm.prompts) == 1 and "Dry-run" not in llm.prompts[0]  # no AI trace for Python
+    assert "Line N:" in llm.prompts[0] and "common_mistakes" in llm.prompts[0]  # rich explanation requested
 
 
 async def test_llm_dry_run_used_for_other_languages(make_client) -> None:
@@ -312,3 +313,21 @@ async def test_chat_without_model_explains(make_client) -> None:
     async with make_client() as client:
         res = await client.post("/api/chat/stream", json={"messages": [{"role": "user", "content": "help"}]})
     assert "event: error" in res.text and "isn't running" in res.text
+
+
+
+async def test_rich_explanation_fields_are_merged(make_client) -> None:
+    llm = FakeLLM(json.dumps({
+        "summary": "Sorts by repeatedly swapping neighbours. Larger values bubble to the end.",
+        "intuition": "Each pass pushes the largest remaining value to its final place.",
+        "approach": ["Line 2: outer loop over passes", "Line 4: compare neighbours", "Line 5: swap if out of order"],
+        "why_it_works": "After pass i the last i elements are sorted.",
+        "common_mistakes": ["Off-by-one in the inner bound"],
+    }))
+    async with make_client(llm) as client:
+        body = (await client.post("/api/analyze", json={"code": BUBBLE})).json()
+        eli5 = (await client.post("/api/explain", json={"code": BUBBLE, "eli5": True})).json()
+    assert body["intuition"].startswith("Each pass") and len(body["approach"]) == 3
+    assert body["why_it_works"] and body["common_mistakes"] == ["Off-by-one in the inner bound"]
+    assert body["edge_cases"]  # missing from the AI reply → offline values kept
+    assert eli5["approach"][0].startswith("Line 2") and eli5["eli5"] is True

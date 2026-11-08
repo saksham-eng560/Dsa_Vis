@@ -115,6 +115,10 @@ class AnalysisResult(BaseModel):
 
     language: str
     summary: str = ""
+    intuition: str = ""
+    approach: list[str] = Field(default_factory=list)  # "Line N: …" steps
+    why_it_works: str = ""
+    common_mistakes: list[str] = Field(default_factory=list)
     algorithm_name: str = "Custom Logic"
     data_structures_used: list[str] = Field(default_factory=list)
     complexity: Complexity = Field(default_factory=Complexity)
@@ -132,6 +136,10 @@ class Explanation(BaseModel):
     """Output of `/api/explain` (subset of AnalysisResult, optionally ELI5)."""
 
     summary: str = ""
+    intuition: str = ""
+    approach: list[str] = Field(default_factory=list)  # "Line N: …" steps
+    why_it_works: str = ""
+    common_mistakes: list[str] = Field(default_factory=list)
     algorithm_name: str = "Custom Logic"
     key_concepts: list[KeyConcept] = Field(default_factory=list)
     edge_cases: list[str] = Field(default_factory=list)

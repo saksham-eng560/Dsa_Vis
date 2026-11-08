@@ -202,9 +202,12 @@ def merge_analysis(static: AnalysisResult, data: dict[str, Any]) -> AnalysisResu
         update["algorithm_name"] = data["algorithm_name"].strip()
     if structures := _str_list(data.get("data_structures_used")):
         update["data_structures_used"] = structures
-    for key in ("edge_cases", "optimizations", "related_algorithms"):
-        if values := _str_list(data.get(key)):  # an omitted/truncated field keeps the static value
+    for key in ("edge_cases", "optimizations", "related_algorithms", "common_mistakes", "approach"):
+        if values := _str_list(data.get(key), limit=10):  # an omitted/truncated field keeps the static value
             update[key] = values
+    for key in ("intuition", "why_it_works"):
+        if isinstance(data.get(key), str) and data[key].strip():
+            update[key] = data[key].strip()
     if concepts := _concepts(data.get("key_concepts")):
         update["key_concepts"] = concepts
 
@@ -227,11 +230,17 @@ def merge_analysis(static: AnalysisResult, data: dict[str, Any]) -> AnalysisResu
 
 def merge_explanation(fallback: Explanation, data: dict[str, Any], eli5: bool) -> Explanation:
     """Build an Explanation from LLM JSON, keeping fallback values for bad fields."""
-    summary = data.get("summary") if isinstance(data.get("summary"), str) else fallback.summary
-    name = data.get("algorithm_name") if isinstance(data.get("algorithm_name"), str) else fallback.algorithm_name
+    def text(key: str) -> str:
+        value = data.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else getattr(fallback, key)
+
     return Explanation(
-        summary=summary.strip(),
-        algorithm_name=name.strip(),
+        summary=text("summary"),
+        algorithm_name=text("algorithm_name"),
+        intuition=text("intuition"),
+        why_it_works=text("why_it_works"),
+        approach=_str_list(data.get("approach"), limit=10) or fallback.approach,
+        common_mistakes=_str_list(data.get("common_mistakes")) or fallback.common_mistakes,
         key_concepts=_concepts(data.get("key_concepts")) or fallback.key_concepts,
         edge_cases=_str_list(data.get("edge_cases")) or fallback.edge_cases,
         optimizations=_str_list(data.get("optimizations")) or fallback.optimizations,

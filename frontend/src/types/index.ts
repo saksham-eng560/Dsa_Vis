@@ -113,9 +113,18 @@ export interface KeyConcept {
   relevance: string;
 }
 
-export interface AnalysisResult {
-  language: Language;
+/** Rich explanation fields shared by AnalysisResult and Explanation. */
+export interface Teaching {
   summary: string;
+  intuition: string;
+  /** "Line N: …" steps. */
+  approach: string[];
+  why_it_works: string;
+  common_mistakes: string[];
+}
+
+export interface AnalysisResult extends Teaching {
+  language: Language;
   algorithm_name: string;
   data_structures_used: string[];
   complexity: Complexity;
@@ -129,8 +138,7 @@ export interface AnalysisResult {
   warnings: string[];
 }
 
-export interface Explanation {
-  summary: string;
+export interface Explanation extends Teaching {
   algorithm_name: string;
   key_concepts: KeyConcept[];
   edge_cases: string[];

@@ -18,20 +18,60 @@ SYSTEM_PROMPT = (
     "no code fences, no commentary. Be precise, concise and correct."
 )
 
+# A *complete* worked example. Small models copy the example's length and depth,
+# so it is deliberately rich: multi-sentence summary, intuition, line-referenced
+# steps, why it works, mistakes. It describes `_EXAMPLE_CODE`, shown alongside it.
+_EXAMPLE_CODE = """def max_subarray(nums):
+    best = cur = nums[0]
+    for x in nums[1:]:
+        cur = max(x, cur + x)
+        best = max(best, cur)
+    return best"""
+
 _EXAMPLE_INSIGHT = {
-    "summary": "Finds the largest number in a list by scanning it once and remembering the best value seen so far.",
-    "algorithm_name": "Linear Scan (Maximum)",
+    "summary": "Finds the largest sum of any contiguous slice of the list using Kadane's algorithm. "
+               "It walks through the numbers once, keeping the best sum of a slice that ends at the current "
+               "position (`cur`) and the best sum seen anywhere so far (`best`). At the end `best` is the answer.",
+    "algorithm_name": "Kadane's Algorithm (Maximum Subarray)",
     "data_structures_used": ["array"],
+    "intuition": "A slice with a negative running total can only drag down whatever comes after it, so the moment "
+                 "extending is worse than starting fresh, we drop the past and restart at the current number.",
+    "approach": [
+        "Line 2: start both `best` and `cur` at the first element, so a list of all negatives still works.",
+        "Line 3: visit every remaining number `x` once, from left to right.",
+        "Line 4: either extend the previous slice (`cur + x`) or start a new slice at `x` — keep the larger.",
+        "Line 5: if the slice ending here beats the record, update `best`.",
+        "Line 6: return `best`, the largest slice sum found.",
+    ],
+    "why_it_works": "Every subarray ends somewhere. `cur` is always the best sum of a subarray ending at the current "
+                    "index (a tiny dynamic-programming recurrence), so taking the maximum over all ending positions "
+                    "in `best` covers every possible subarray.",
     "complexity": {
         "time": {"best": "O(n)", "average": "O(n)", "worst": "O(n)",
-                 "explanation": "Every element is compared exactly once."},
-        "space": {"complexity": "O(1)", "explanation": "Only one extra variable `best` is stored."},
+                 "explanation": "The loop on line 3 visits each of the n numbers exactly once and does O(1) work "
+                                "per number (two max calls), so the total work grows linearly."},
+        "space": {"complexity": "O(1)",
+                  "explanation": "Only two integers (`best`, `cur`) are stored, no matter how long the list is."},
     },
-    "key_concepts": [{"concept": "Running maximum", "explanation": "Keep the best answer so far.",
-                      "relevance": "`best` is updated whenever a larger value appears."}],
-    "edge_cases": ["Empty list raises IndexError on nums[0]"],
-    "optimizations": ["Use the built-in max(nums) for clarity"],
-    "related_algorithms": ["Linear Search", "Kadane's Algorithm"],
+    "key_concepts": [
+        {"concept": "Dynamic programming", "explanation": "Build the answer for position i from the answer for i-1.",
+         "relevance": "`cur` at line 4 reuses the previous `cur` instead of re-summing slices."},
+        {"concept": "Greedy restart", "explanation": "Discard a prefix as soon as it can't help any more.",
+         "relevance": "`max(x, cur + x)` restarts the slice when the running sum is negative."},
+    ],
+    "edge_cases": [
+        "All negative numbers — the answer is the largest single element; starting at nums[0] handles it.",
+        "A single element — the loop body never runs and nums[0] is returned.",
+        "Empty list — nums[0] raises an error; guard it if empty input is allowed.",
+    ],
+    "optimizations": [
+        "Already optimal at O(n) time / O(1) space; track start/end indices too if you need the slice itself.",
+    ],
+    "common_mistakes": [
+        "Initialising `best = 0`, which returns 0 for an all-negative list.",
+        "Resetting `cur` to 0 instead of to `x`, which breaks negative-only inputs.",
+    ],
+    "related_algorithms": ["Maximum Product Subarray", "Best Time to Buy and Sell Stock", "Prefix sums"],
 }
 
 _EXAMPLE_DRY_RUN = {
@@ -70,13 +110,20 @@ def analysis_prompt(code: str, language: str, hints: str, need_dry_run: bool = F
     """
     del need_dry_run
     return "\n\n".join([
-        f"Analyze this {language} code (line numbers on the left are for reference only):",
+        f"You are teaching a student how THEIR {language} code works. Here it is "
+        "(line numbers on the left are for reference only):",
         _numbered(code),
         f"Static analyzer notes (heuristic, may be wrong — correct them if needed):\n{hints}",
-        "Respond with JSON using exactly the keys of this example (values are illustrative):",
+        "Here is an example of the depth and style expected, for a DIFFERENT piece of code:",
+        _numbered(_EXAMPLE_CODE),
         json.dumps(_EXAMPLE_INSIGHT, ensure_ascii=False),
-        "Complexities must use Big-O notation such as O(1), O(log n), O(n), O(n log n), O(n²), O(2ⁿ). "
-        "Give 2-4 key_concepts and 2-5 edge_cases.",
+        "Now write the same JSON (exactly these keys) for the student's code above. Requirements: "
+        "summary = 2-4 sentences explaining what it does and how; intuition = the core idea in plain words; "
+        "approach = 3-7 steps that each start with the real line number (\"Line N: …\") and use the student's "
+        "variable names; why_it_works = 2-3 sentences; complexity explanations must say WHICH loops/calls cause the "
+        "cost; 2-4 key_concepts; 3-5 edge_cases saying what happens; 1-3 optimizations (or say it's optimal and "
+        "why); 2-3 common_mistakes; 2-4 related_algorithms. Use Big-O notation like O(1), O(log n), O(n), "
+        "O(n log n), O(n²), O(2ⁿ).",
     ])
 
 
@@ -102,20 +149,25 @@ def dry_run_prompt(code: str, language: str, input_label: str, title: str) -> st
 def explain_prompt(code: str, language: str, eli5: bool) -> str:
     """Explanation-only prompt; `eli5` switches to a child-friendly register."""
     style = (
-        "Explain it like I'm 5: short sentences, an everyday analogy (toys, lines at a shop, "
-        "sorting cards), no jargon. Concepts should also be explained simply."
+        "Explain it like I'm 5: short sentences, one everyday analogy carried through every field (toys, a "
+        "queue at a shop, sorting cards), no jargon. The approach steps should still follow the code's lines, "
+        "but in simple words."
         if eli5 else
         "Explain it for a computer-science student: precise, step by step, naming the technique."
     )
-    keys = {k: _EXAMPLE_INSIGHT[k] for k in
-            ("summary", "algorithm_name", "key_concepts", "edge_cases", "optimizations", "related_algorithms")}
+    keys = {k: _EXAMPLE_INSIGHT[k] for k in _EXPLAIN_KEYS}
     return "\n\n".join([
         f"Explain what this {language} code does.",
-        code,
+        _numbered(code),
         style,
-        "Respond with JSON using exactly these keys:",
+        "Respond with JSON using exactly these keys (example values are for a different program — "
+        "match their depth, not their content):",
         json.dumps(keys, ensure_ascii=False),
     ])
+
+
+_EXPLAIN_KEYS = ("summary", "algorithm_name", "intuition", "approach", "why_it_works", "key_concepts",
+                 "edge_cases", "optimizations", "common_mistakes", "related_algorithms")
 
 
 CHAT_SYSTEM = (

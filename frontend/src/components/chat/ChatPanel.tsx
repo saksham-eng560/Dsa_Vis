@@ -1,48 +1,21 @@
 /** "Ask CodeLens" — a tutor chat that knows your code, problem and current dry-run step. */
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eraser, MessageCircleQuestion, Send, Square, X } from 'lucide-react';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Eraser, MessageCircleQuestion, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
-import { useChatActions } from '../../hooks/useChat';
-import { useAppStore } from '../../stores/appStore';
 import { useChat } from '../../stores/chatStore';
 import { GlowButton } from '../ui/GlowButton';
-import { Markdown } from './Markdown';
+import { ChatComposer } from './ChatComposer';
+import { ChatThread } from './ChatThread';
 
-const SUGGESTIONS = [
-  'Explain the current dry-run step',
-  'Why is my solution this time complexity?',
-  'Which edge cases could break my code?',
-  'Give me a hint to optimise this',
-  'Why is my test failing?',
-];
 
 export function ChatPanel() {
-  const { open, messages, streaming, setOpen, clear } = useChat();
-  const { send, stop } = useChatActions();
-  const hasCode = useAppStore((s) => s.code.trim().length > 0);
-  const [draft, setDraft] = useState('');
-  const listRef = useRef<HTMLDivElement>(null);
+  const { open, messages, setOpen, clear } = useChat();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
-  useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
-
-  const submit = (text = draft) => {
-    if (!text.trim()) return;
-    void send(text);
-    setDraft('');
-  };
-  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    } else if (e.key === 'Escape') setOpen(false);
-  };
 
   return (
     <>
@@ -84,60 +57,9 @@ export function ChatPanel() {
               <GlowButton iconOnly aria-label="Close chat" icon={<X size={16} />} onClick={() => setOpen(false)} />
             </header>
 
-            <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4 scroll-thin" aria-live="polite">
-              {messages.length === 0 && (
-                <div className="space-y-3">
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    {hasCode ? 'Ask anything about your code — doubts, hints, why a test fails…' : 'Paste or write some code first, then ask away.'}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {SUGGESTIONS.map((s) => (
-                      <button key={s} className="chip focus-ring cursor-pointer text-left !py-1.5" onClick={() => submit(s)} disabled={streaming}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {messages.map((m, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 ${m.role === 'user' ? 'ml-auto' : ''}`}
-                  style={
-                    m.role === 'user'
-                      ? { background: 'color-mix(in srgb, var(--accent-primary) 28%, transparent)' }
-                      : { background: 'var(--glass-bg-hover)', border: '1px solid var(--glass-border)' }
-                  }
-                >
-                  {m.role === 'assistant' ? (
-                    m.content ? <Markdown text={m.content} /> : <span className="caret text-sm" style={{ color: 'var(--text-faint)' }}>Thinking</span>
-                  ) : (
-                    <p className="whitespace-pre-wrap text-sm">{m.content}</p>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-
+            <ChatThread />
             <div className="border-t p-3" style={{ borderColor: 'var(--glass-border)' }}>
-              <div className="flex items-end gap-2">
-                <textarea
-                  ref={inputRef}
-                  className="field h-auto max-h-32 min-h-[2.5rem] flex-1 resize-none py-2 leading-5"
-                  rows={2}
-                  placeholder="Ask a doubt… (Enter to send, Shift+Enter for a new line)"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={onKey}
-                  aria-label="Your question"
-                />
-                {streaming ? (
-                  <GlowButton iconOnly aria-label="Stop" icon={<Square size={14} />} onClick={stop} />
-                ) : (
-                  <GlowButton variant="glow" iconOnly aria-label="Send" icon={<Send size={15} />} onClick={() => submit()} disabled={!draft.trim()} />
-                )}
-              </div>
+              <ChatComposer ref={inputRef} onEscape={() => setOpen(false)} />
             </div>
           </motion.aside>
         )}

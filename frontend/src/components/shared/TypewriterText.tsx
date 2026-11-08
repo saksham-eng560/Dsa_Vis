@@ -1,8 +1,10 @@
 /** Reveals text progressively (respects reduced-motion). */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 interface TypewriterTextProps {
   text: string;
+  /** Rich rendering shown once typing finishes (e.g. inline code, line links). */
+  children?: ReactNode;
   /** Characters per second. */
   speed?: number;
   className?: string;
@@ -10,7 +12,7 @@ interface TypewriterTextProps {
 
 const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-export function TypewriterText({ text, speed = 90, className = '' }: TypewriterTextProps) {
+export function TypewriterText({ text, speed = 90, className = '', children }: TypewriterTextProps) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export function TypewriterText({ text, speed = 90, className = '' }: TypewriterT
   const done = count >= text.length;
   return (
     <p className={`${className} ${done ? '' : 'caret'}`} aria-label={text}>
-      <span aria-hidden="true">{text.slice(0, count)}</span>
+      <span aria-hidden="true">{done && children ? children : text.slice(0, count).replace(/`/g, '')}</span>
     </p>
   );
 }

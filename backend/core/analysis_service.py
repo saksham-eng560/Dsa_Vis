@@ -152,11 +152,9 @@ class AnalysisService:
         if cached := self.explain_cache.get(key):
             return cached
         static = await self.static(req)
-        fallback = Explanation(
-            summary=static.summary, algorithm_name=static.algorithm_name,
-            key_concepts=static.key_concepts, edge_cases=static.edge_cases,
-            optimizations=static.optimizations, related_algorithms=static.related_algorithms, eli5=req.eli5,
-        )
+        shared = (k for k in Explanation.model_fields if hasattr(static, k) and k not in ("eli5", "llm_used"))
+        fallback = Explanation(**{k: getattr(static, k) for k in shared},
+                               eli5=req.eli5, llm_used=False)
         result = fallback
         if await self.llm.available():
             try:
