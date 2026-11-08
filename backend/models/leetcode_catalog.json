@@ -1,0 +1,987 @@
+[
+ {
+  "id": "1",
+  "slug": "two-sum",
+  "title": "Two Sum",
+  "difficulty": "Easy",
+  "tags": [
+   "Array",
+   "Hash Table"
+  ],
+  "description": "Given an integer array nums and an integer target, return the indices of the two numbers that add up to target. Exactly one solution exists and the same element may not be used twice. Any order is accepted.",
+  "function_name": "twoSum",
+  "params": [
+   {
+    "name": "nums",
+    "type": "integer[]"
+   },
+   {
+    "name": "target",
+    "type": "integer"
+   }
+  ],
+  "return_type": "integer[]",
+  "examples": [
+   {
+    "input": [
+     "[2,7,11,15]",
+     "9"
+    ],
+    "expected": "[0,1]"
+   },
+   {
+    "input": [
+     "[3,2,4]",
+     "6"
+    ],
+    "expected": "[1,2]"
+   },
+   {
+    "input": [
+     "[3,3]",
+     "6"
+    ],
+    "expected": "[0,1]"
+   }
+  ],
+  "compare": "unordered",
+  "output_param": null
+ },
+ {
+  "id": "3",
+  "slug": "longest-substring-without-repeating-characters",
+  "title": "Longest Substring Without Repeating Characters",
+  "difficulty": "Medium",
+  "tags": [
+   "Hash Table",
+   "String",
+   "Sliding Window"
+  ],
+  "description": "Given a string s, return the length of the longest substring that contains no repeated characters.",
+  "function_name": "lengthOfLongestSubstring",
+  "params": [
+   {
+    "name": "s",
+    "type": "string"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "\"abcabcbb\""
+    ],
+    "expected": "3"
+   },
+   {
+    "input": [
+     "\"bbbbb\""
+    ],
+    "expected": "1"
+   },
+   {
+    "input": [
+     "\"pwwkew\""
+    ],
+    "expected": "3"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "11",
+  "slug": "container-with-most-water",
+  "title": "Container With Most Water",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Two Pointers",
+   "Greedy"
+  ],
+  "description": "height[i] is the height of a vertical line at x = i. Pick two lines that, with the x-axis, hold the most water and return that amount.",
+  "function_name": "maxArea",
+  "params": [
+   {
+    "name": "height",
+    "type": "integer[]"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[1,8,6,2,5,4,8,3,7]"
+    ],
+    "expected": "49"
+   },
+   {
+    "input": [
+     "[1,1]"
+    ],
+    "expected": "1"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "15",
+  "slug": "3sum",
+  "title": "3Sum",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Two Pointers",
+   "Sorting"
+  ],
+  "description": "Return all unique triplets [a, b, c] from nums with a + b + c == 0, using distinct indices. Triplets and their order may be returned in any order.",
+  "function_name": "threeSum",
+  "params": [
+   {
+    "name": "nums",
+    "type": "integer[]"
+   }
+  ],
+  "return_type": "integer[][]",
+  "examples": [
+   {
+    "input": [
+     "[-1,0,1,2,-1,-4]"
+    ],
+    "expected": "[[-1,-1,2],[-1,0,1]]"
+   },
+   {
+    "input": [
+     "[0,1,1]"
+    ],
+    "expected": "[]"
+   },
+   {
+    "input": [
+     "[0,0,0]"
+    ],
+    "expected": "[[0,0,0]]"
+   }
+  ],
+  "compare": "unordered_nested",
+  "output_param": null
+ },
+ {
+  "id": "20",
+  "slug": "valid-parentheses",
+  "title": "Valid Parentheses",
+  "difficulty": "Easy",
+  "tags": [
+   "String",
+   "Stack"
+  ],
+  "description": "Given a string of brackets ()[]{}, decide whether every opening bracket is closed by the same type in the correct order.",
+  "function_name": "isValid",
+  "params": [
+   {
+    "name": "s",
+    "type": "string"
+   }
+  ],
+  "return_type": "boolean",
+  "examples": [
+   {
+    "input": [
+     "\"()\""
+    ],
+    "expected": "true"
+   },
+   {
+    "input": [
+     "\"()[]{}\""
+    ],
+    "expected": "true"
+   },
+   {
+    "input": [
+     "\"(]\""
+    ],
+    "expected": "false"
+   },
+   {
+    "input": [
+     "\"([])\""
+    ],
+    "expected": "true"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "21",
+  "slug": "merge-two-sorted-lists",
+  "title": "Merge Two Sorted Lists",
+  "difficulty": "Easy",
+  "tags": [
+   "Linked List",
+   "Recursion"
+  ],
+  "description": "Merge two sorted linked lists by splicing their nodes together and return the head of the sorted result.",
+  "function_name": "mergeTwoLists",
+  "params": [
+   {
+    "name": "list1",
+    "type": "ListNode"
+   },
+   {
+    "name": "list2",
+    "type": "ListNode"
+   }
+  ],
+  "return_type": "ListNode",
+  "examples": [
+   {
+    "input": [
+     "[1,2,4]",
+     "[1,3,4]"
+    ],
+    "expected": "[1,1,2,3,4,4]"
+   },
+   {
+    "input": [
+     "[]",
+     "[]"
+    ],
+    "expected": "[]"
+   },
+   {
+    "input": [
+     "[]",
+     "[0]"
+    ],
+    "expected": "[0]"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "35",
+  "slug": "search-insert-position",
+  "title": "Search Insert Position",
+  "difficulty": "Easy",
+  "tags": [
+   "Array",
+   "Binary Search"
+  ],
+  "description": "Given a sorted array of distinct integers and a target, return its index, or the index where it would be inserted to keep the order. Aim for O(log n).",
+  "function_name": "searchInsert",
+  "params": [
+   {
+    "name": "nums",
+    "type": "integer[]"
+   },
+   {
+    "name": "target",
+    "type": "integer"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[1,3,5,6]",
+     "5"
+    ],
+    "expected": "2"
+   },
+   {
+    "input": [
+     "[1,3,5,6]",
+     "2"
+    ],
+    "expected": "1"
+   },
+   {
+    "input": [
+     "[1,3,5,6]",
+     "7"
+    ],
+    "expected": "4"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "49",
+  "slug": "group-anagrams",
+  "title": "Group Anagrams",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Hash Table",
+   "String",
+   "Sorting"
+  ],
+  "description": "Group the strings that are anagrams of each other. Groups and their members may be in any order.",
+  "function_name": "groupAnagrams",
+  "params": [
+   {
+    "name": "strs",
+    "type": "string[]"
+   }
+  ],
+  "return_type": "string[][]",
+  "examples": [
+   {
+    "input": [
+     "[\"eat\",\"tea\",\"tan\",\"ate\",\"nat\",\"bat\"]"
+    ],
+    "expected": "[[\"bat\"],[\"nat\",\"tan\"],[\"ate\",\"eat\",\"tea\"]]"
+   },
+   {
+    "input": [
+     "[\"\"]"
+    ],
+    "expected": "[[\"\"]]"
+   },
+   {
+    "input": [
+     "[\"a\"]"
+    ],
+    "expected": "[[\"a\"]]"
+   }
+  ],
+  "compare": "unordered_nested",
+  "output_param": null
+ },
+ {
+  "id": "53",
+  "slug": "maximum-subarray",
+  "title": "Maximum Subarray",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Divide and Conquer",
+   "Dynamic Programming"
+  ],
+  "description": "Return the largest sum of any non-empty contiguous subarray of nums.",
+  "function_name": "maxSubArray",
+  "params": [
+   {
+    "name": "nums",
+    "type": "integer[]"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[-2,1,-3,4,-1,2,1,-5,4]"
+    ],
+    "expected": "6"
+   },
+   {
+    "input": [
+     "[1]"
+    ],
+    "expected": "1"
+   },
+   {
+    "input": [
+     "[5,4,-1,7,8]"
+    ],
+    "expected": "23"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "56",
+  "slug": "merge-intervals",
+  "title": "Merge Intervals",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Sorting"
+  ],
+  "description": "Merge all overlapping intervals and return the non-overlapping intervals that cover every input interval.",
+  "function_name": "merge",
+  "params": [
+   {
+    "name": "intervals",
+    "type": "integer[][]"
+   }
+  ],
+  "return_type": "integer[][]",
+  "examples": [
+   {
+    "input": [
+     "[[1,3],[2,6],[8,10],[15,18]]"
+    ],
+    "expected": "[[1,6],[8,10],[15,18]]"
+   },
+   {
+    "input": [
+     "[[1,4],[4,5]]"
+    ],
+    "expected": "[[1,5]]"
+   }
+  ],
+  "compare": "unordered",
+  "output_param": null
+ },
+ {
+  "id": "70",
+  "slug": "climbing-stairs",
+  "title": "Climbing Stairs",
+  "difficulty": "Easy",
+  "tags": [
+   "Math",
+   "Dynamic Programming",
+   "Memoization"
+  ],
+  "description": "You climb a staircase of n steps taking 1 or 2 steps at a time. Return the number of distinct ways to reach the top.",
+  "function_name": "climbStairs",
+  "params": [
+   {
+    "name": "n",
+    "type": "integer"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "2"
+    ],
+    "expected": "2"
+   },
+   {
+    "input": [
+     "3"
+    ],
+    "expected": "3"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "94",
+  "slug": "binary-tree-inorder-traversal",
+  "title": "Binary Tree Inorder Traversal",
+  "difficulty": "Easy",
+  "tags": [
+   "Stack",
+   "Tree",
+   "Depth-First Search",
+   "Binary Tree"
+  ],
+  "description": "Return the inorder (left, node, right) traversal of a binary tree's values.",
+  "function_name": "inorderTraversal",
+  "params": [
+   {
+    "name": "root",
+    "type": "TreeNode"
+   }
+  ],
+  "return_type": "integer[]",
+  "examples": [
+   {
+    "input": [
+     "[1,null,2,3]"
+    ],
+    "expected": "[1,3,2]"
+   },
+   {
+    "input": [
+     "[1,2,3,4,5,null,8,null,null,6,7,9]"
+    ],
+    "expected": "[4,2,6,5,7,1,3,9,8]"
+   },
+   {
+    "input": [
+     "[]"
+    ],
+    "expected": "[]"
+   },
+   {
+    "input": [
+     "[1]"
+    ],
+    "expected": "[1]"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "104",
+  "slug": "maximum-depth-of-binary-tree",
+  "title": "Maximum Depth of Binary Tree",
+  "difficulty": "Easy",
+  "tags": [
+   "Tree",
+   "Depth-First Search",
+   "Breadth-First Search",
+   "Binary Tree"
+  ],
+  "description": "Return the number of nodes on the longest path from the root down to a leaf.",
+  "function_name": "maxDepth",
+  "params": [
+   {
+    "name": "root",
+    "type": "TreeNode"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[3,9,20,null,null,15,7]"
+    ],
+    "expected": "3"
+   },
+   {
+    "input": [
+     "[1,null,2]"
+    ],
+    "expected": "2"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "121",
+  "slug": "best-time-to-buy-and-sell-stock",
+  "title": "Best Time to Buy and Sell Stock",
+  "difficulty": "Easy",
+  "tags": [
+   "Array",
+   "Dynamic Programming"
+  ],
+  "description": "prices[i] is a stock's price on day i. Buy on one day and sell on a later day; return the maximum profit, or 0 if no profit is possible.",
+  "function_name": "maxProfit",
+  "params": [
+   {
+    "name": "prices",
+    "type": "integer[]"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[7,1,5,3,6,4]"
+    ],
+    "expected": "5"
+   },
+   {
+    "input": [
+     "[7,6,4,3,1]"
+    ],
+    "expected": "0"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "146",
+  "slug": "lru-cache",
+  "title": "LRU Cache",
+  "difficulty": "Medium",
+  "tags": [
+   "Hash Table",
+   "Linked List",
+   "Design",
+   "Doubly-Linked List"
+  ],
+  "description": "Design a cache with a fixed capacity: get(key) returns the value or -1; put(key, value) inserts or updates and, when full, evicts the least recently used key. Both should run in O(1) on average.",
+  "design": true,
+  "class_name": "LRUCache",
+  "constructor_params": [
+   {
+    "name": "capacity",
+    "type": "integer"
+   }
+  ],
+  "methods": [
+   {
+    "name": "get",
+    "params": [
+     {
+      "name": "key",
+      "type": "integer"
+     }
+    ],
+    "return_type": "integer"
+   },
+   {
+    "name": "put",
+    "params": [
+     {
+      "name": "key",
+      "type": "integer"
+     },
+     {
+      "name": "value",
+      "type": "integer"
+     }
+    ],
+    "return_type": "void"
+   }
+  ],
+  "examples": [
+   {
+    "input": [
+     "[\"LRUCache\",\"put\",\"put\",\"get\",\"put\",\"get\",\"put\",\"get\",\"get\",\"get\"]",
+     "[[2],[1,1],[2,2],[1],[3,3],[2],[4,4],[1],[3],[4]]"
+    ],
+    "expected": "[null,null,null,1,null,-1,null,-1,3,4]"
+   }
+  ]
+ },
+ {
+  "id": "155",
+  "slug": "min-stack",
+  "title": "Min Stack",
+  "difficulty": "Medium",
+  "tags": [
+   "Stack",
+   "Design"
+  ],
+  "description": "Design a stack supporting push, pop, top and getMin, each in O(1) time.",
+  "design": true,
+  "class_name": "MinStack",
+  "constructor_params": [],
+  "methods": [
+   {
+    "name": "push",
+    "params": [
+     {
+      "name": "val",
+      "type": "integer"
+     }
+    ],
+    "return_type": "void"
+   },
+   {
+    "name": "pop",
+    "params": [],
+    "return_type": "void"
+   },
+   {
+    "name": "top",
+    "params": [],
+    "return_type": "integer"
+   },
+   {
+    "name": "getMin",
+    "params": [],
+    "return_type": "integer"
+   }
+  ],
+  "examples": [
+   {
+    "input": [
+     "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"pop\",\"top\",\"getMin\"]",
+     "[[],[-2],[0],[-3],[],[],[],[]]"
+    ],
+    "expected": "[null,null,null,null,-3,null,0,-2]"
+   }
+  ]
+ },
+ {
+  "id": "200",
+  "slug": "number-of-islands",
+  "title": "Number of Islands",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Depth-First Search",
+   "Breadth-First Search",
+   "Union Find",
+   "Matrix"
+  ],
+  "description": "Given a grid of '1' (land) and '0' (water), count the islands: groups of land cells connected horizontally or vertically.",
+  "function_name": "numIslands",
+  "params": [
+   {
+    "name": "grid",
+    "type": "character[][]"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[[\"1\",\"1\",\"1\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"0\",\"0\"]]"
+    ],
+    "expected": "1"
+   },
+   {
+    "input": [
+     "[[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"1\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"1\",\"1\"]]"
+    ],
+    "expected": "3"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "206",
+  "slug": "reverse-linked-list",
+  "title": "Reverse Linked List",
+  "difficulty": "Easy",
+  "tags": [
+   "Linked List",
+   "Recursion"
+  ],
+  "description": "Reverse a singly linked list and return the new head.",
+  "function_name": "reverseList",
+  "params": [
+   {
+    "name": "head",
+    "type": "ListNode"
+   }
+  ],
+  "return_type": "ListNode",
+  "examples": [
+   {
+    "input": [
+     "[1,2,3,4,5]"
+    ],
+    "expected": "[5,4,3,2,1]"
+   },
+   {
+    "input": [
+     "[1,2]"
+    ],
+    "expected": "[2,1]"
+   },
+   {
+    "input": [
+     "[]"
+    ],
+    "expected": "[]"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "215",
+  "slug": "kth-largest-element-in-an-array",
+  "title": "Kth Largest Element in an Array",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Divide and Conquer",
+   "Sorting",
+   "Heap (Priority Queue)",
+   "Quickselect"
+  ],
+  "description": "Return the kth largest element of nums (in sorted order, not the kth distinct). Can you do it without sorting?",
+  "function_name": "findKthLargest",
+  "params": [
+   {
+    "name": "nums",
+    "type": "integer[]"
+   },
+   {
+    "name": "k",
+    "type": "integer"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[3,2,1,5,6,4]",
+     "2"
+    ],
+    "expected": "5"
+   },
+   {
+    "input": [
+     "[3,2,3,1,2,4,5,5,6]",
+     "4"
+    ],
+    "expected": "4"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "226",
+  "slug": "invert-binary-tree",
+  "title": "Invert Binary Tree",
+  "difficulty": "Easy",
+  "tags": [
+   "Tree",
+   "Depth-First Search",
+   "Breadth-First Search",
+   "Binary Tree"
+  ],
+  "description": "Mirror a binary tree (swap every node's left and right children) and return its root.",
+  "function_name": "invertTree",
+  "params": [
+   {
+    "name": "root",
+    "type": "TreeNode"
+   }
+  ],
+  "return_type": "TreeNode",
+  "examples": [
+   {
+    "input": [
+     "[4,2,7,1,3,6,9]"
+    ],
+    "expected": "[4,7,2,9,6,3,1]"
+   },
+   {
+    "input": [
+     "[2,1,3]"
+    ],
+    "expected": "[2,3,1]"
+   },
+   {
+    "input": [
+     "[]"
+    ],
+    "expected": "[]"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "283",
+  "slug": "move-zeroes",
+  "title": "Move Zeroes",
+  "difficulty": "Easy",
+  "tags": [
+   "Array",
+   "Two Pointers"
+  ],
+  "description": "Move every 0 in nums to the end while keeping the relative order of the other elements. Modify nums in place; nothing is returned.",
+  "function_name": "moveZeroes",
+  "params": [
+   {
+    "name": "nums",
+    "type": "integer[]"
+   }
+  ],
+  "return_type": "void",
+  "examples": [
+   {
+    "input": [
+     "[0,1,0,3,12]"
+    ],
+    "expected": "[1,3,12,0,0]"
+   },
+   {
+    "input": [
+     "[0]"
+    ],
+    "expected": "[0]"
+   }
+  ],
+  "compare": "exact",
+  "output_param": 0
+ },
+ {
+  "id": "322",
+  "slug": "coin-change",
+  "title": "Coin Change",
+  "difficulty": "Medium",
+  "tags": [
+   "Array",
+   "Dynamic Programming",
+   "Breadth-First Search"
+  ],
+  "description": "Given coin denominations and an amount, return the fewest coins that sum to the amount (unlimited coins of each kind), or -1 if impossible.",
+  "function_name": "coinChange",
+  "params": [
+   {
+    "name": "coins",
+    "type": "integer[]"
+   },
+   {
+    "name": "amount",
+    "type": "integer"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[1,2,5]",
+     "11"
+    ],
+    "expected": "3"
+   },
+   {
+    "input": [
+     "[2]",
+     "3"
+    ],
+    "expected": "-1"
+   },
+   {
+    "input": [
+     "[1]",
+     "0"
+    ],
+    "expected": "0"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ },
+ {
+  "id": "704",
+  "slug": "binary-search",
+  "title": "Binary Search",
+  "difficulty": "Easy",
+  "tags": [
+   "Array",
+   "Binary Search"
+  ],
+  "description": "Given a sorted array of integers and a target, return the target's index or -1. Your solution must run in O(log n).",
+  "function_name": "search",
+  "params": [
+   {
+    "name": "nums",
+    "type": "integer[]"
+   },
+   {
+    "name": "target",
+    "type": "integer"
+   }
+  ],
+  "return_type": "integer",
+  "examples": [
+   {
+    "input": [
+     "[-1,0,3,5,9,12]",
+     "9"
+    ],
+    "expected": "4"
+   },
+   {
+    "input": [
+     "[-1,0,3,5,9,12]",
+     "2"
+    ],
+    "expected": "-1"
+   }
+  ],
+  "compare": "exact",
+  "output_param": null
+ }
+]

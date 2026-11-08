@@ -1,0 +1,11 @@
+line-length = 120
+target-version = "py311"
+extend-exclude = ["sandbox/guard.py"]
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B008", "B905", "SIM105", "SIM108"]  # Depends() defaults; zip lengths checked by callers
+
+[lint.per-file-ignores]
+"tests/samples.py" = ["E501"]
+"models/knowledge.py" = ["E501"]
